@@ -243,6 +243,17 @@ div.cell{ cursor:default; }
 .stove .potlid{ fill:none; stroke:var(--surface); stroke-width:3; opacity:0.5; }
 .stove .knob{ fill:var(--cell); stroke:var(--ink); stroke-width:2; }
 .stove .knobmark{ stroke:var(--ink); stroke-width:4; stroke-linecap:round; }
+.track{ position:relative; background:var(--surface); border:5px solid var(--line); border-radius:0.8rem; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.track[data-s="on"]{ border-color:var(--good); }
+.track[data-s="off"]{ border-color:var(--bad); }
+.tgt{ position:absolute; left:0; top:0; border-radius:50%; background:var(--primary); pointer-events:none; will-change:transform; }
+.tgt::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; background:var(--surface); }
+.track[data-s="on"] .tgt{ background:var(--good); box-shadow:0 0 0 12px rgba(91,208,142,0.35); }
+.track[data-s="off"] .tgt{ box-shadow:0 0 0 7px var(--bad); }
+.fdot{ position:absolute; left:0; top:0; width:28px; height:28px; border-radius:50%; background:var(--mark); border:3px solid var(--ink); pointer-events:none; display:none; will-change:transform; }
+.tlines{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+.tline{ stroke:var(--bad); stroke-width:5; stroke-dasharray:10 8; stroke-linecap:round; }
+.track-status{ font-size:1.25rem; min-height:1.6em; }
 </style>
 </head>
 <body>
@@ -287,9 +298,9 @@ const app = document.getElementById('app');
 const anchor = document.getElementById('anchor');
 function screen(...nodes) { app.replaceChildren(...nodes.flat(2).filter(Boolean)); try { window.scrollTo(0, 0); } catch (e) {} }
 
-let timers = [];
+let timers = [], stops = [];
 const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
-function clearTimers() { timers.forEach(clearTimeout); timers = []; try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} }
+function clearTimers() { timers.forEach(clearTimeout); timers = []; stops.forEach(f => { try { f(); } catch (e) {} }); stops = []; try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} }
 function flash(el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 function pulseAnchor() { anchor.classList.add('pulse'); setTimeout(() => anchor.classList.remove('pulse'), 2600); }
 
@@ -327,6 +338,20 @@ document.addEventListener('pointerdown', () => {
   if (!S.settings.sound) return;
   try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) {}
 }, { passive: true });
+function blip(kind) {
+  if (!S.settings.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    const f = { on: [660, 990], tick: [880, 880], off: [220, 165] }[kind];
+    const vol = kind === 'tick' ? 0.05 : 0.12, dur = kind === 'tick' ? 0.08 : 0.24;
+    o.type = kind === 'off' ? 'triangle' : 'sine';
+    o.connect(g); g.connect(ac.destination);
+    o.frequency.setValueAtTime(f[0], t); o.frequency.linearRampToValueAtTime(f[1], t + dur * 0.6);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.05);
+  } catch (e) {}
+}
 const canSpeak = 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
 function say(text) {
   if (!canSpeak) return;
@@ -478,7 +503,7 @@ function stoveSvg(n, pot, lit) {
 }
 
 /* ---------- exercises ---------- */
-const AREAS = ['Looking left and scanning', 'Attention', 'Space and shapes', 'Memory', 'Thinking it through', 'My routines'];
+const AREAS = ['Looking left and scanning', 'Attention', 'Space and shapes', 'Hand and eye', 'Memory', 'Thinking it through', 'My routines'];
 
 function makeGrid(g, interactive, onTap) {
   const grid = h('div', { class: 'grid sq', style: `grid-template-columns:repeat(${g},1fr)` });
@@ -720,6 +745,110 @@ const EX = [
         s('circle', { cx: 100, cy: 100, r: 5, class: 'pin' })
       );
       stage.append(svg, choices(shuffle([...set]), target, ok => finish(ok ? 1 : 0, ok ? `Yes, ${target}.` : `The clock shows ${target}.`)));
+    }
+  },
+  {
+    id: 'track', area: 'Hand and eye', name: 'Follow the circle', what: 'Keep your finger on a moving target', trials: 2, max: 5,
+    how: lv => lv < 4 ? 'Put your finger on the circle and keep it there while it moves. Try not to lift your finger.'
+      : 'Keep your finger on the circle. Sometimes it jumps. Find it and touch it again.',
+    run(lv, stage, finish) {
+      const c = [0, { sp: 70, r: 74, dur: 25 }, { sp: 110, r: 64, dur: 30 }, { sp: 150, r: 56, dur: 30 },
+        { sp: 130, r: 58, dur: 30, jump: 6 }, { sp: 180, r: 48, dur: 30, jump: 5 }][lv];
+      const status = h('p', { class: 'cue track-status', text: 'Put your finger on the circle to begin.' });
+      const board = h('div', { class: 'track' });
+      const bar = h('i');
+      stage.append(status, board, h('div', { class: 'prog' }, bar));
+      const W = board.clientWidth || 640;
+      const top = board.getBoundingClientRect().top || 200;
+      const H = Math.round(Math.max(340, Math.min(W * 0.85, (window.innerHeight || 800) - top - 40)));
+      board.style.height = H + 'px';
+      const r = c.r, tol = r * 1.2 + 10, margin = r + 8;
+      const svg = s('svg', { class: 'tlines', 'aria-hidden': 'true' });
+      const ln = s('line', { class: 'tline', x1: 0, y1: 0, x2: 0, y2: 0 });
+      ln.style.display = 'none'; svg.append(ln);
+      const tgt = h('div', { class: 'tgt', style: `width:${2 * r}px;height:${2 * r}px` });
+      const dot = h('div', { class: 'fdot' });
+      board.append(svg, tgt, dot);
+
+      let x = W / 2, y = H / 2, from = null, to = null, t0 = 0, segDur = 1, holdUntil = 0;
+      let left = Math.random() < 0.5;
+      const ease = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      function nextSeg(now) {
+        from = { x, y };
+        if (Math.random() < 0.75) left = !left;
+        const a = left ? margin : W / 2, b = left ? W / 2 : W - margin;
+        to = { x: a + Math.random() * (b - a), y: margin + Math.random() * (H - 2 * margin) };
+        segDur = Math.max(800, Math.hypot(to.x - from.x, to.y - from.y) / c.sp * 1000); t0 = now;
+      }
+      let state = 'wait', down = false, pid = null, fx = 0, fy = 0, wasOn = null, lastBeep = 0, last = null;
+      let elapsed = 0, onT = 0, tot = 0, nextJump = c.jump || Infinity, reachOpen = false, reachN = 0, reachHit = 0;
+      const side = { L: [0, 0], R: [0, 0] };
+      function jump(now) {
+        const goLeft = x >= W / 2;
+        const a = goLeft ? margin : W / 2 + r, b = goLeft ? W / 2 - r : W - margin;
+        x = a + Math.random() * (b - a); y = margin + Math.random() * (H - 2 * margin);
+        holdUntil = now + 3000; reachOpen = true; reachN++; nextJump = elapsed + c.jump;
+      }
+      const pos = e => { const b = board.getBoundingClientRect(); fx = e.clientX - b.left; fy = e.clientY - b.top; };
+      board.addEventListener('pointerdown', e => {
+        e.preventDefault(); if (down) return;
+        down = true; pid = e.pointerId; pos(e);
+        try { board.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+      board.addEventListener('pointermove', e => { if (down && e.pointerId === pid) { e.preventDefault(); pos(e); } });
+      const up = e => { if (e.pointerId === pid) { down = false; pid = null; } };
+      board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
+      board.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+      function feedback(on, now) {
+        if (on !== wasOn) {
+          wasOn = on; board.dataset.s = on ? 'on' : 'off';
+          status.textContent = on ? '✓ On it' : (down ? '✕ Missing it. The circle is at the end of the red line.' : '✕ Missing it. Find the circle and touch it.');
+          blip(on ? 'on' : 'off'); lastBeep = now;
+        } else if (now - lastBeep > (on ? 1000 : 1800)) { blip(on ? 'tick' : 'off'); lastBeep = now; }
+        if (!on) status.textContent = down ? '✕ Missing it. The circle is at the end of the red line.' : '✕ Missing it. Find the circle and touch it.';
+      }
+      let raf = 0;
+      function end() {
+        state = 'done'; cancelAnimationFrame(raf); ln.style.display = 'none';
+        const sc = tot ? onT / tot : 0;
+        let msg = `You stayed on the circle ${pct(sc)} of the time.`;
+        if (side.L[1] > 3 && side.R[1] > 3) msg += ` Left side ${pct(side.L[0] / side.L[1])}, right side ${pct(side.R[0] / side.R[1])}.`;
+        if (reachN) msg += ` After a jump, you found it ${reachHit} of ${reachN} times.`;
+        finish(sc, msg, { tl: [Math.round(side.L[0]), Math.round(side.L[1])], tr: [Math.round(side.R[0]), Math.round(side.R[1])], reach: [reachHit, reachN] });
+      }
+      function loop(now) {
+        raf = requestAnimationFrame(loop);
+        const dt = last == null ? 0 : Math.min(0.1, (now - last) / 1000); last = now;
+        if (state === 'run') {
+          elapsed += dt;
+          if (holdUntil) { if (now >= holdUntil) { holdUntil = 0; reachOpen = false; nextSeg(now); } }
+          else {
+            let k = (now - t0) / segDur;
+            if (k >= 1) { x = to.x; y = to.y; nextSeg(now); }
+            else { const e = ease(k); x = from.x + (to.x - from.x) * e; y = from.y + (to.y - from.y) * e; }
+            if (elapsed >= nextJump) jump(now);
+          }
+        }
+        const on = down && Math.hypot(fx - x, fy - y) <= tol;
+        if (state === 'wait' && on) { state = 'run'; nextSeg(now); blip('on'); }
+        if (state === 'run') {
+          tot += dt; if (on) onT += dt;
+          const sd = x < W / 2 ? 'L' : 'R'; side[sd][1] += dt; if (on) side[sd][0] += dt;
+          if (reachOpen && on) { reachHit++; reachOpen = false; holdUntil = 0; nextSeg(now); }
+          feedback(on, now);
+          bar.style.width = Math.min(100, elapsed / c.dur * 100) + '%';
+        }
+        tgt.style.transform = `translate(${x - r}px,${y - r}px)`;
+        dot.style.display = down ? 'block' : 'none';
+        if (down) dot.style.transform = `translate(${fx - 14}px,${fy - 14}px)`;
+        if (state === 'run' && down && !on) {
+          ln.style.display = ''; ln.setAttribute('x1', fx); ln.setAttribute('y1', fy); ln.setAttribute('x2', x); ln.setAttribute('y2', y);
+        } else ln.style.display = 'none';
+        if (state === 'run' && elapsed >= c.dur) end();
+      }
+      raf = requestAnimationFrame(loop);
+      stops.push(() => cancelAnimationFrame(raf));
     }
   },
   {
@@ -967,7 +1096,7 @@ function showHome() {
         h('button', { class: 'btn quiet small', type: 'button', text: 'Settings', onclick: showSettings }))),
     h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
     h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
-    h('p', { class: 'muted', text: `${AREAS.length} exercises, about 12 minutes.` }),
+    h('p', { class: 'muted', text: `${AREAS.length} exercises, about 15 minutes.` }),
     weekDots(),
     groups
   );
@@ -1047,7 +1176,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.1, October 17, 2026' })
+    h('p', { class: 'note', text: 'Version 1.2, October 17, 2026' })
   );
 }
 
