@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brain Gym</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Brain Gym">
+<meta name="theme-color" content="#0E5A60">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF1F0; --surface:#FFFFFF; --ink:#13262B; --muted:#4D6066; --line:#C6D1D0;
+  --primary:#0E5A60; --on-primary:#FFFFFF; --anchor:#E23D28;
+  --good:#1B6E42; --bad:#B3261E; --mark:#F4B63A; --on-mark:#13262B; --cell:#DAE3E2;
+  --bar:12px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1B1E; --surface:#18282C; --ink:#EAF1F0; --muted:#A3B5B8; --line:#33484C;
+    --primary:#5CC5CC; --on-primary:#062427; --anchor:#FF5A43;
+    --good:#5BD08E; --bad:#FF8A80; --mark:#F4B63A; --on-mark:#13262B; --cell:#263B3F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1B1E; --surface:#18282C; --ink:#EAF1F0; --muted:#A3B5B8; --line:#33484C;
+  --primary:#5CC5CC; --on-primary:#062427; --anchor:#FF5A43;
+  --good:#5BD08E; --bad:#FF8A80; --mark:#F4B63A; --on-mark:#13262B; --cell:#263B3F;
+}
+@media (min-width:700px){ :root{ --bar:16px; } }
+html{ font-size:112.5%; height:100%; scroll-padding-top:env(safe-area-inset-top,0px); }
+html[data-big="on"]{ font-size:135%; }
+html[data-guide="off"]{ --bar:0px; }
+*,*::before,*::after{ box-sizing:inherit; }
+[hidden]{ display:none !important; }
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--ink);
+  font-family:"Atkinson Hyperlegible", Verdana, "Segoe UI", system-ui, sans-serif;
+  line-height:1.45; -webkit-text-size-adjust:100%;
+}
+#anchor{ position:fixed; left:0; top:0; bottom:0; width:var(--bar); background:var(--anchor); z-index:5; }
+#anchor.pulse{ animation:pulse 0.8s 3; }
+@keyframes pulse{ 50%{ width:calc(var(--bar) * 3); } }
+@media (prefers-reduced-motion: reduce){ #anchor.pulse{ animation:none; width:calc(var(--bar) * 2.5); } }
+#app{ max-width:60rem; padding:1.1rem 1rem 3rem calc(var(--bar) + 1rem); }
+
+h1{ font-size:1.7rem; line-height:1.15; margin:0; }
+h2{ font-size:1.2rem; margin:0; }
+p{ margin:0.6rem 0; max-width:36rem; }
+.muted{ color:var(--muted); }
+
+button{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; font:inherit; color:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+:focus-visible{ outline:3px solid var(--mark); outline-offset:3px; }
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:3.3rem; padding:0.6rem 1.4rem; border-radius:0.7rem;
+  border:2px solid var(--primary); background:var(--primary); color:var(--on-primary);
+  font-weight:700; font-size:1.1rem;
+}
+.btn.quiet{ background:transparent; color:var(--primary); }
+.btn.small{ min-height:2.8rem; padding:0.4rem 1rem; font-size:1rem; }
+.btn.big{ min-height:4.4rem; font-size:1.35rem; padding:0.8rem 1.8rem; margin-top:0.6rem; }
+.btn[disabled]{ opacity:0.45; cursor:default; }
+.btnrow{ display:flex; flex-wrap:wrap; gap:0.8rem; margin-top:1.4rem; }
+
+.top{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.8rem; margin-bottom:1rem; }
+.top nav{ display:flex; gap:0.6rem; }
+.top .count{ font-weight:700; color:var(--muted); }
+.greet{ font-size:1.3rem; margin:1.2rem 0 0.2rem; }
+
+.week{ display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem; margin:1.2rem 0 0; }
+.week b{
+  width:2.1rem; height:2.1rem; border-radius:50%; display:grid; place-items:center;
+  border:2px solid var(--line); font-size:0.85rem; color:var(--muted);
+}
+.week b.on{ background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
+.week span{ margin-left:0.5rem; color:var(--muted); }
+
+.area{ margin:1.9rem 0 0.5rem; font-size:1rem; color:var(--muted); }
+.group{ background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; overflow:hidden; }
+.group > *:last-child{ border-bottom:0; }
+.ex{
+  display:grid; grid-template-columns:1fr auto; gap:0.1rem 1rem; align-items:center;
+  width:100%; text-align:left; background:transparent; border:0; border-bottom:1px solid var(--line);
+  padding:0.9rem 1rem; min-height:4.4rem;
+}
+.ex-name{ font-weight:700; font-size:1.15rem; }
+.ex-what{ color:var(--muted); font-size:0.95rem; }
+.ex-meta{ color:var(--muted); font-size:0.95rem; text-align:right; white-space:nowrap; }
+
+.instr-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.instr{ font-size:1.3rem; font-weight:700; line-height:1.3; margin:0.2rem 0 1rem; }
+.listen{
+  flex:none; min-height:2.8rem; padding:0.3rem 0.9rem; border-radius:0.7rem;
+  border:2px solid var(--line); background:var(--surface); font-weight:700; font-size:0.95rem;
+}
+.stage{ margin-top:0.4rem; }
+.stage.locked{ pointer-events:none; }
+.cue{ font-weight:700; min-height:1.5em; margin:0.8rem 0; }
+.task{ font-size:1.4rem; margin-bottom:0.8rem; }
+
+.grid{ display:grid; gap:6px; }
+.grid.sq{ width:min(100%, 17rem); }
+.grid.wide .cell{ aspect-ratio:auto; height:100%; }
+.stage{ -webkit-user-select:none; user-select:none; }
+.cell{
+  aspect-ratio:1; min-width:0; padding:0; border:0; border-radius:8px;
+  background:var(--cell); color:var(--ink);
+  display:grid; place-items:center; line-height:1; font-weight:700;
+  font-size:clamp(1.15rem, 4.4vw, 1.75rem); position:relative;
+}
+div.cell{ cursor:default; }
+.cell.on{ background:var(--primary); color:var(--on-primary); }
+.cell.hit{ background:var(--mark); color:var(--on-mark); box-shadow:inset 0 0 0 3px var(--ink); }
+.cell.missed{ background:transparent; outline:3px dashed var(--bad); outline-offset:-3px; }
+.cell.extra{ background:var(--cell); }
+.cell.extra::after{ content:"\2715"; color:var(--bad); font-size:1.3rem; }
+.flash{ animation:flash 0.4s; }
+@keyframes flash{ 0%,100%{ box-shadow:0 0 0 0 transparent; } 35%{ box-shadow:0 0 0 5px var(--bad); } }
+
+.pair{ display:flex; flex-wrap:wrap; gap:1.4rem 3rem; align-items:flex-start; margin-bottom:1.2rem; }
+.pair > div{ flex:1 1 13rem; max-width:17rem; }
+.pair h3{ margin:0 0 0.5rem; font-size:1rem; color:var(--muted); }
+
+.bigword{
+  background:var(--surface); border:1px solid var(--line); border-radius:0.8rem;
+  padding:1.6rem 1rem; text-align:center; font-weight:700; line-height:1.2;
+  font-size:clamp(1.8rem, 7vw, 3.2rem); letter-spacing:0.02em; overflow-wrap:anywhere;
+}
+.opts{ display:grid; grid-template-columns:repeat(2, 1fr); gap:0.7rem; margin-top:1rem; }
+.opts.col{ grid-template-columns:1fr; max-width:36rem; }
+@media (max-width:420px){ .opts{ grid-template-columns:1fr; } }
+.opt{
+  min-height:3.8rem; padding:0.7rem 1rem; text-align:left; font-size:1.15rem; font-weight:700;
+  background:var(--surface); border:2px solid var(--line); border-radius:0.7rem;
+}
+.opt.right{ border-color:var(--good); }
+.opt.right::before{ content:"\2713\00a0\00a0"; color:var(--good); }
+.opt.wrong{ border-color:var(--bad); }
+.opt.wrong::before{ content:"\2715\00a0\00a0"; color:var(--bad); }
+.opt.hint, .node.hint{ box-shadow:0 0 0 5px var(--mark); }
+.scenario{ font-size:1.3rem; line-height:1.4; margin:0 0 0.4rem; }
+.q{ font-weight:700; margin:1rem 0 0; }
+
+.board{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; }
+.lines{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.lines line{ stroke:var(--primary); stroke-width:3; vector-effect:non-scaling-stroke; }
+.node{
+  position:absolute; width:52px; height:52px; transform:translate(-50%,-50%); padding:0;
+  border-radius:50%; border:2px solid var(--ink); background:var(--surface);
+  font-weight:700; font-size:20px; line-height:1;
+}
+.node.done{ background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
+
+.flashbox{
+  height:11rem; display:grid; place-items:center; background:var(--surface);
+  border:4px solid var(--line); border-radius:0.8rem; font-size:5.5rem; line-height:1;
+}
+.flashbox[data-r="good"]{ border-color:var(--good); }
+.flashbox[data-r="bad"]{ border-color:var(--bad); }
+.ringed{ display:inline-grid; place-items:center; width:8.6rem; height:8.6rem; border:8px solid var(--ink); border-radius:50%; }
+.prog{ height:6px; background:var(--line); border-radius:3px; margin-top:0.8rem; overflow:hidden; }
+.prog i{ display:block; height:100%; width:0; background:var(--primary); }
+.tap{ width:100%; min-height:6rem; font-size:1.6rem; }
+
+.clock{ display:block; width:min(100%, 15rem); margin:0 auto; }
+.clock .face{ fill:var(--surface); stroke:var(--ink); stroke-width:3; }
+.clock .tick{ stroke:var(--muted); stroke-width:1; }
+.clock .tick.major{ stroke:var(--ink); stroke-width:3; }
+.clock .num{ fill:var(--ink); font-size:17px; font-weight:700; font-family:inherit; }
+.clock .hand{ stroke:var(--ink); stroke-linecap:round; }
+.clock .hour{ stroke-width:7; }
+.clock .minute{ stroke-width:4; stroke:var(--anchor); }
+.clock .pin{ fill:var(--ink); }
+
+.ordered{ margin:0 0 1rem; padding:0 0 0 1.6rem; min-height:3rem; font-size:1.15rem; font-weight:700; }
+.ordered li{ padding:0.35rem 0; }
+.ordered:empty::before{ content:"Your steps will line up here."; font-weight:400; color:var(--muted); margin-left:-1.6rem; }
+.pool{ display:grid; gap:0.7rem; max-width:36rem; }
+
+.fb{
+  position:sticky; bottom:0.6rem; margin-top:1.4rem; padding:1rem;
+  background:var(--surface); border:3px solid var(--line); border-radius:0.8rem;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.8rem 1.4rem;
+}
+.fb[hidden]{ display:none; }
+.fb[data-kind="good"]{ border-color:var(--good); }
+.fb[data-kind="part"]{ border-color:var(--mark); }
+.fb[data-kind="bad"]{ border-color:var(--bad); }
+.fb p{ margin:0.2rem 0 0; }
+.fb > div{ flex:1 1 14rem; }
+
+.results{ list-style:none; margin:1.2rem 0 0; padding:0; }
+.results li{ display:grid; grid-template-columns:1fr auto; gap:0.1rem 1rem; padding:0.9rem 1rem; border-bottom:1px solid var(--line); }
+.results .score{ font-weight:700; font-size:1.3rem; }
+.results small{ grid-column:1 / -1; color:var(--muted); font-size:0.95rem; }
+.mini{ display:block; width:9rem; height:2.2rem; }
+.mini rect{ fill:var(--primary); }
+.mini .base{ fill:var(--line); }
+.side{ display:grid; grid-template-columns:5.5rem 1fr 3.2rem; align-items:center; gap:0.8rem; padding:0.6rem 1rem; }
+.side div{ height:1.1rem; background:var(--cell); border-radius:0.55rem; overflow:hidden; }
+.side i{ display:block; height:100%; background:var(--primary); }
+.side b{ text-align:right; }
+
+.switch{
+  display:flex; align-items:center; justify-content:space-between; gap:1rem; width:100%;
+  min-height:3.8rem; padding:0.8rem 1rem; text-align:left;
+  background:transparent; border:0; border-bottom:1px solid var(--line);
+}
+.switch em{ font-style:normal; font-weight:700; min-width:2.2rem; text-align:right; }
+.field{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.6rem 1rem; padding:0.8rem 1rem; border-bottom:1px solid var(--line); }
+.field input{
+  font:inherit; color:var(--ink); background:var(--bg); border:2px solid var(--line);
+  border-radius:0.6rem; padding:0.5rem 0.7rem; min-height:2.8rem; width:min(100%, 14rem);
+}
+.stepper{ display:flex; align-items:center; gap:0.6rem; }
+.stepper button{ width:2.8rem; height:2.8rem; border-radius:50%; border:2px solid var(--primary); background:transparent; color:var(--primary); font-weight:700; font-size:1.3rem; line-height:1; }
+.stepper span{ min-width:6.5rem; text-align:center; }
+.note{ font-size:0.95rem; color:var(--muted); margin-top:1.6rem; }
+/* iPad and larger */
+@media (min-width:700px){
+  #app{ max-width:74rem; }
+  .pair{ gap:1.4rem 2.4rem; }
+  .pair > div{ flex:0 1 20rem; max-width:20rem; }
+  .grid.sq{ width:min(100%, 20rem); }
+  .clock{ width:19rem; margin:0; }
+  .board .node{ width:64px; height:64px; font-size:23px; }
+  .bigword{ padding:2.2rem 1rem; }
+  .opts.col{ max-width:44rem; }
+  .pool{ max-width:44rem; }
+}
+.stovewrap{ max-width:22rem; margin:0.4rem 0 0; }
+.stove{ display:block; width:100%; }
+.stove .top{ fill:var(--surface); stroke:var(--ink); stroke-width:3; }
+.stove .coil{ fill:none; stroke:var(--muted); stroke-width:4; }
+.stove .coil.lit{ stroke:var(--anchor); }
+.stove .glow{ fill:var(--anchor); opacity:0.18; }
+.stove .pot{ fill:var(--ink); }
+.stove .potlid{ fill:none; stroke:var(--surface); stroke-width:3; opacity:0.5; }
+.stove .knob{ fill:var(--cell); stroke:var(--ink); stroke-width:2; }
+.stove .knobmark{ stroke:var(--ink); stroke-width:4; stroke-linecap:round; }
+</style>
+</head>
+<body>
+<div id="anchor" aria-hidden="true"></div>
+<main id="app"></main>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  if (props) for (const k in props) {
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(2)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+function s(tag, attrs, ...kids) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  kids.forEach(k => e.append(k));
+  return e;
+}
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const range = n => Array.from({ length: n }, (_, i) => i);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clip = x => Math.max(0, Math.min(1, x));
+const pct = x => Math.round(x * 100) + '%';
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+
+const app = document.getElementById('app');
+const anchor = document.getElementById('anchor');
+function screen(...nodes) { app.replaceChildren(...nodes.flat(2).filter(Boolean)); try { window.scrollTo(0, 0); } catch (e) {} }
+
+let timers = [];
+const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
+function clearTimers() { timers.forEach(clearTimeout); timers = []; try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} }
+function flash(el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+function pulseAnchor() { anchor.classList.add('pulse'); setTimeout(() => anchor.classList.remove('pulse'), 2600); }
+
+/* ---------- saved data (this device only) ---------- */
+const KEY = 'dailypractice.v1';
+const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true }, levels: {}, history: [] });
+let S = blank();
+try {
+  const raw = localStorage.getItem(KEY);
+  if (raw) { const p = JSON.parse(raw); S = Object.assign(blank(), p); S.settings = Object.assign(blank().settings, p.settings || {}); if (!Array.isArray(S.history)) S.history = []; if (!S.levels) S.levels = {}; }
+} catch (e) { S = blank(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function applySettings() {
+  document.documentElement.dataset.big = S.settings.big ? 'on' : 'off';
+  document.documentElement.dataset.guide = S.settings.guide ? 'on' : 'off';
+}
+
+/* ---------- sound and speech ---------- */
+let ac;
+function tone(ok) {
+  if (!S.settings.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.connect(g); g.connect(ac.destination); o.type = 'sine';
+    o.frequency.setValueAtTime(ok ? 660 : 220, t);
+    if (ok) o.frequency.setValueAtTime(880, t + 0.1);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.15, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.start(t); o.stop(t + 0.35);
+  } catch (e) {}
+}
+document.addEventListener('pointerdown', () => {
+  if (!S.settings.sound) return;
+  try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) {}
+}, { passive: true });
+const canSpeak = 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
+function say(text) {
+  if (!canSpeak) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.9; speechSynthesis.speak(u); } catch (e) {}
+}
+function listenBtn(text) {
+  return canSpeak ? h('button', { class: 'listen', type: 'button', text: 'Listen', onclick: () => say(text) }) : null;
+}
+
+/* ---------- shared pieces ---------- */
+function choices(opts, correct, cb, cls) {
+  const wrap = h('div', { class: 'opts ' + (cls || '') });
+  opts.forEach(o => {
+    const b = h('button', { class: 'opt', type: 'button', text: o });
+    b.addEventListener('click', () => {
+      [...wrap.children].forEach(c => { if (c.textContent === correct) c.classList.add('right'); });
+      if (o !== correct) b.classList.add('wrong');
+      cb(o === correct, o);
+    });
+    wrap.append(b);
+  });
+  return wrap;
+}
+let run = null;
+function fresh(bank) {
+  run.used = run.used || new Set();
+  let pool = bank.filter(x => !run.used.has(x));
+  if (!pool.length) { bank.forEach(x => run.used.delete(x)); pool = bank; }
+  const it = pick(pool); run.used.add(it); return it;
+}
+
+/* ---------- content ---------- */
+const WORDS = {
+  1: [
+    ['baseball', 'ball', 'football', 'base'], ['sunflower', 'flower', 'mayflower', 'sun'],
+    ['toothbrush', 'brush', 'hairbrush', 'tooth'], ['bedroom', 'room', 'bathroom', 'bed'],
+    ['raincoat', 'coat', 'overcoat', 'rain'], ['doorbell', 'bell', 'barbell', 'door'],
+    ['snowman', 'man', 'mailman', 'snow'], ['firewood', 'wood', 'driftwood', 'fire'],
+    ['sailboat', 'boat', 'rowboat', 'sail'], ['notebook', 'book', 'cookbook', 'note']
+  ],
+  2: [
+    ['bright', 'right', 'fright', 'light'], ['train', 'rain', 'brain', 'grain'],
+    ['clock', 'lock', 'block', 'flock'], ['stable', 'table', 'cable', 'fable'],
+    ['spark', 'park', 'shark', 'dark'], ['flame', 'lame', 'blame', 'frame'],
+    ['plate', 'late', 'slate', 'gate'], ['chair', 'hair', 'stair', 'pair'],
+    ['price', 'rice', 'slice', 'dice'], ['ground', 'round', 'pound', 'sound']
+  ],
+  4: [
+    ['Do not take with food', 'Take with food', 'Always take with food', 'With food'],
+    ['Not safe to drink', 'Safe to drink', 'Now safe to drink', 'To drink'],
+    ['No parking on this side', 'Parking on this side', 'Free parking on this side', 'On this side'],
+    ['Half a tablet twice a day', 'A tablet twice a day', 'One tablet twice a day', 'Twice a day'],
+    ['Unlock the back door', 'Lock the back door', 'Block the back door', 'The back door'],
+    ['Turn left at the light', 'Left at the light', 'Turn right at the light', 'At the light'],
+    ['Never leave the stove on', 'Leave the stove on', 'Always leave the stove on', 'The stove on'],
+    ['Closed until Monday morning', 'Until Monday morning', 'Open until Monday morning', 'Monday morning']
+  ]
+};
+const STEPS = [
+  ['Making coffee', 'Fill the machine with water', 'Put in a filter', 'Add the coffee grounds', 'Turn the machine on', 'Wait for it to brew', 'Pour a cup'],
+  ['Brushing your teeth', 'Pick up the toothbrush', 'Put toothpaste on it', 'Brush your teeth', 'Spit and rinse your mouth', 'Rinse off the toothbrush', 'Put the toothbrush away'],
+  ['Doing laundry', 'Sort the dirty clothes', 'Load the washer', 'Add the detergent', 'Start the washer', 'Move the clothes to the dryer', 'Fold the dry clothes'],
+  ['Mailing a letter', 'Write the letter', 'Put it in an envelope', 'Seal the envelope', 'Write the address on the front', 'Stick on a stamp', 'Drop it in the mailbox'],
+  ['Making a sandwich', 'Get out the bread', 'Spread mustard on a slice', 'Add the meat and cheese', 'Put the top slice on', 'Cut the sandwich in half', 'Eat lunch'],
+  ['Grocery shopping', 'Make a shopping list', 'Drive to the store', 'Fill the cart', 'Pay at the register', 'Carry the bags into the house', 'Put the food away'],
+  ['Frying an egg', 'Put the pan on the stove', 'Turn on the burner', 'Crack the egg into the pan', 'Cook until the white is firm', 'Turn off the burner', 'Slide the egg onto a plate'],
+  ['Washing dishes', 'Fill the sink with soapy water', 'Scrub the dishes', 'Rinse off the soap', 'Set them in the rack', 'Dry them with a towel', 'Put them in the cupboard'],
+  ['Heading out in the snow', 'Put on warm socks', 'Pull on your boots', 'Put on your coat', 'Zip up the coat', 'Put on your gloves', 'Step outside']
+];
+const MEAN = {
+  1: [
+    ['“It’s raining cats and dogs.”', 'It is raining very hard', 'Animals are falling from the sky', 'The pets are outside in the rain'],
+    ['“She has a green thumb.”', 'She is good at growing plants', 'Her thumb is painted green', 'She hurt her thumb'],
+    ['“He’s feeling under the weather.”', 'He feels a little sick', 'He is standing in the rain', 'He likes cloudy days'],
+    ['“That truck cost an arm and a leg.”', 'It was very expensive', 'Someone got hurt buying it', 'It was a small truck'],
+    ['“Let’s call it a day.”', 'Let’s stop working for now', 'Let’s give today a name', 'Let’s phone someone today'],
+    ['“I’m all ears.”', 'I’m listening closely', 'My ears are large', 'I can’t hear you'],
+    ['“He let the cat out of the bag.”', 'He told a secret', 'He set a pet free', 'He lost his bag'],
+    ['“Hold your horses.”', 'Wait a moment', 'Grab the reins', 'Go feed the horses']
+  ],
+  2: [
+    ['Tom walks in shaking a wet umbrella and wiping off his glasses.', 'It is raining outside', 'Tom just took a shower', 'Tom is going swimming'],
+    ['Mary looks at her watch, grabs her keys, and runs out the door.', 'She is running late', 'She is bored', 'She lost her watch'],
+    ['The kitchen smells like smoke and the toast is black.', 'The toast burned', 'Someone is painting', 'Dinner is ready'],
+    ['Bill puts on a suit, practices his answers, and brings copies of his résumé.', 'He has a job interview', 'He is going fishing', 'He is going to bed'],
+    ['The dog sits by the door holding its leash in its mouth.', 'The dog wants a walk', 'The dog is sleepy', 'The dog is hiding'],
+    ['Ann blows out candles while everyone sings.', 'It is her birthday', 'The power went out', 'She is cooking dinner'],
+    ['Joe looks at the gas gauge, frowns, and takes the next exit.', 'He needs to buy gas', 'He has arrived home', 'He wants to drive faster'],
+    ['The stands are full, the scoreboard is lit, and the band is playing.', 'A game is about to start', 'The store is closing', 'Everyone is asleep']
+  ],
+  3: [
+    ['It is pouring rain. Sue looks out the window and says, “Lovely weather for a picnic.”', 'She is joking. The weather is bad', 'She wants a picnic right now', 'She thinks it is sunny'],
+    ['Dan’s team loses 10 to 0. His friend says, “Well, that went great.”', 'He means it went badly', 'He thinks the team played well', 'He did not see the game'],
+    ['Pat opens a gift, pauses, and says, “Oh. A third toaster. Thanks.”', 'Pat is not excited about it', 'Pat loves toasters', 'Pat does not know what it is'],
+    ['Kim says “I’m fine,” but she won’t look up and her eyes are red.', 'She is probably upset', 'She is doing fine', 'She is in a hurry'],
+    ['Ray waits an hour at the restaurant. When his friend walks in, Ray says, “Nice of you to show up.”', 'Ray is annoyed', 'Ray is grateful', 'Ray is surprised to see him'],
+    ['After Lee tells a long story, his wife smiles and says, “You’ve only told that one a hundred times.”', 'She is teasing him', 'She counted the times', 'She wants to hear it again'],
+    ['The boss says, “Take your time,” while tapping his watch.', 'He really wants you to hurry', 'He wants you to relax', 'He is asking what time it is'],
+    ['June shuts the door hard and says, “No, really, I love being ignored.”', 'She is upset about being ignored', 'She enjoys being left alone', 'She wants the door fixed']
+  ],
+  4: [
+    ['You smell gas in the kitchen.', 'Leave the house and call for help', 'Light a match to look for the leak', 'Open the oven and wait'],
+    ['You can’t remember whether you took this morning’s pill.', 'Check the pill box or ask someone first', 'Take two to be safe', 'Skip pills for the week'],
+    ['A caller says you won a prize and asks for your bank number.', 'Hang up without giving it', 'Read them the number', 'Ask them to call back tonight'],
+    ['You’re cooking and the phone rings in the other room.', 'Turn off the burner before you go', 'Leave the pan and go answer', 'Turn the heat up so it finishes'],
+    ['The driveway is icy and the mail just came.', 'Wait, or ask someone to get it', 'Hurry out in your slippers', 'Run so you’re outside less time'],
+    ['Your appointment is at 2:00 and the drive takes 30 minutes.', 'Leave by 1:20', 'Leave at 2:00', 'Leave at 1:45']
+  ]
+};
+
+
+/* ---------- personal routines (add new reminders here) ---------- */
+const ROUTINE = [
+  ['Morning fire', 'Before you light the morning fire, what do you check first?', 'That the damper is open', 'That the damper is closed to hold the heat in', 'Nothing, just light it'],
+  ['Morning fire', 'What is the right way to get the fire going?', 'Dry kindling and newspaper', 'A splash of gasoline or lighter fluid', 'Damp wood so it burns slowly'],
+  ['Morning fire', 'Where do old ashes go?', 'In a metal can with a lid, outside, away from the house', 'In a paper bag in the garage', 'In the kitchen trash'],
+  ['Morning fire', 'How long can ashes stay hot enough to start a fire?', 'Several days, so treat them as hot', 'About ten minutes', 'They are safe once they look gray'],
+  ['Morning fire', 'You are leaving the room while the fire burns. What do you do?', 'Close the stove door or put the screen in place', 'Leave it wide open so it gets air', 'Add a big pile of wood first'],
+  ['Morning fire', 'A blanket or newspaper is sitting close to the fire. What do you do?', 'Move it at least three feet away', 'Leave it, it is only paper', 'Push it a little closer to dry it'],
+  ['Morning fire', 'Smoke is filling the room. What do you do?', 'Check the damper. If it doesn’t clear, get out and call for help', 'Open the stove door wider', 'Add more wood to make it burn hotter'],
+  ['Making coffee', 'You turn a knob to heat the coffee. What do you do next?', 'Look and make sure the burner under the pot is the one heating', 'Walk away. The knob was on the left, so it is fine', 'Turn on a second burner to be sure'],
+  ['Making coffee', 'The pot isn’t heating up after a few minutes. What is most likely?', 'The wrong burner is on', 'The coffee is old', 'The pot is broken'],
+  ['Making coffee', 'The coffee is done. What do you do before leaving the kitchen?', 'Turn the burner off and check that every knob is off', 'Leave it on low to keep it warm', 'Check only the burner you meant to use'],
+  ['Making coffee', 'A burner is glowing red with nothing on it. What do you do?', 'Turn that burner off now', 'Set the coffee pot on it later', 'Nothing, it will turn off by itself']
+];
+const BURNER = { 4: ['back left', 'back right', 'front left', 'front right'], 5: ['back left', 'back right', 'front left', 'front right', 'middle'] };
+function stoveSvg(n, pot, lit) {
+  const pos = n === 4 ? [[90, 80, 34], [230, 80, 34], [90, 190, 42], [230, 190, 42]] : [[80, 78, 32], [240, 78, 32], [80, 192, 40], [240, 192, 40], [160, 135, 30]];
+  const svg = s('svg', { viewBox: '0 0 320 300', class: 'stove', role: 'img', 'aria-label': 'Stove top' });
+  svg.append(s('rect', { x: 4, y: 4, width: 312, height: 292, rx: 16, class: 'top' }));
+  pos.forEach(([x, y, r], i) => {
+    if (i === lit) { svg.append(s('circle', { cx: x, cy: y, r: r + 6, class: 'glow' })); }
+    [1, 0.66, 0.33].forEach(f => svg.append(s('circle', { cx: x, cy: y, r: r * f, class: i === lit ? 'coil lit' : 'coil' })));
+  });
+  const [px, py, pr] = pos[pot];
+  svg.append(s('rect', { x: px + pr * 0.55, y: py - 7, width: pr * 1.1, height: 14, rx: 7, class: 'pot' }));
+  svg.append(s('circle', { cx: px, cy: py, r: pr * 0.92, class: 'pot' }));
+  svg.append(s('circle', { cx: px, cy: py, r: pr * 0.62, class: 'potlid' }));
+  // knobs along the front
+  const kx = n === 4 ? [50, 120, 200, 270] : [40, 100, 160, 220, 280];
+  const order = n === 4 ? [2, 0, 1, 3] : [2, 0, 4, 1, 3];
+  order.forEach((b, k) => {
+    const g = s('g', { transform: `translate(${kx[k]} 262)` });
+    g.append(s('circle', { r: 15, class: 'knob' }));
+    g.append(s('line', { x1: 0, y1: 0, x2: 0, y2: -12, class: 'knobmark', transform: `rotate(${b === lit ? 120 : 0})` }));
+    svg.append(g);
+  });
+  return svg;
+}
+
+/* ---------- exercises ---------- */
+const AREAS = ['Looking left and scanning', 'Attention', 'Space and shapes', 'Memory', 'Thinking it through', 'My routines'];
+
+function makeGrid(g, interactive, onTap) {
+  const grid = h('div', { class: 'grid sq', style: `grid-template-columns:repeat(${g},1fr)` });
+  const cells = range(g * g).map(i => interactive
+    ? h('button', { class: 'cell', type: 'button', 'aria-label': `Row ${Math.floor(i / g) + 1}, column ${i % g + 1}`, onclick: () => onTap(i) })
+    : h('div', { class: 'cell' }));
+  grid.append(...cells);
+  return { grid, cells };
+}
+function sideNote(X) {
+  const mL = X.L[1] - X.L[0], mR = X.R[1] - X.R[0];
+  return mL > mR ? ' More were missed on the left than the right.' : '';
+}
+
+const EX = [
+  {
+    id: 'scan', area: AREAS[0], name: 'Find them all', what: 'Search the whole page, edge to edge', trials: 2, max: 5,
+    how: lv => ['', 'Tap every star ★.', 'Tap every star ★.', 'Tap every letter A.', 'Tap every letter b.', 'Tap every b and every q.'][lv] + ' Start at the far left and work across each row.',
+    run(lv, stage, finish) {
+      const c = [0, { n: 24, t: 6, tg: ['★'], d: ['●'] }, { n: 40, t: 8, tg: ['★'], d: ['●', '▲', '■'] },
+        { n: 60, t: 10, tg: ['A'], d: 'CEFHKLMNPRSTUVXZ'.split('') }, { n: 84, t: 12, tg: ['b'], d: ['d', 'p', 'q'] },
+        { n: 112, t: 14, tg: ['b', 'q'], d: ['d', 'p'] }][lv];
+      const w = stage.clientWidth || 640;
+      const top = stage.getBoundingClientRect().top || 160;
+      const availH = Math.max(260, (window.innerHeight || 800) - top - 150);
+      let cols = Math.ceil(Math.sqrt(c.n * w / availH));
+      cols = Math.max(6, Math.min(cols, Math.floor(w / 46)));
+      cols += cols % 2;
+      const rows = Math.min(12, Math.ceil(c.n / cols)), total = rows * cols;
+      const cellH = Math.round(Math.max(44, Math.min(w / cols, availH / rows)));
+      const half = Math.min(c.t / 2, Math.floor(total / 6));
+      const isLeft = i => (i % cols) < cols / 2;
+      const all = range(total);
+      const targets = new Set([...shuffle(all.filter(isLeft)).slice(0, half), ...shuffle(all.filter(i => !isLeft(i))).slice(0, half)]);
+      const T = targets.size, found = new Set();
+      let falseTaps = 0, cued = false, pre = null;
+      const grid = h('div', { class: 'grid wide', style: `grid-template-columns:repeat(${cols},1fr);grid-auto-rows:${cellH}px` });
+      const cells = all.map(i => {
+        const isT = targets.has(i);
+        const b = h('button', { class: 'cell', type: 'button', text: isT ? pick(c.tg) : pick(c.d) });
+        b.addEventListener('click', () => {
+          if (isT) { if (!found.has(i)) { found.add(i); b.classList.add('hit'); } }
+          else { falseTaps++; flash(b); }
+        });
+        return b;
+      });
+      grid.append(...cells);
+      const cue = h('p', { class: 'cue', role: 'status' });
+      const count = () => { let L = 0, R = 0; found.forEach(i => isLeft(i) ? L++ : R++); return [L, R]; };
+      const btn = h('button', { class: 'btn', type: 'button', text: 'I found them all' });
+      btn.addEventListener('click', () => {
+        const rest = [...targets].filter(i => !found.has(i));
+        if (pre === null) pre = count();
+        if (rest.length && !cued) {
+          cued = true;
+          const l = rest.filter(isLeft).length, side = l >= rest.length - l ? 'left' : 'right';
+          cue.textContent = `${rest.length} more to find. Look on the ${side} side` + (side === 'left' && S.settings.guide ? ', next to the red line.' : '.');
+          btn.textContent = 'Now I found them all';
+          if (side === 'left') pulseAnchor();
+          return;
+        }
+        rest.forEach(i => cells[i].classList.add('missed'));
+        const preN = pre[0] + pre[1], post = found.size - preN;
+        const X = { L: [pre[0], half], R: [pre[1], half] };
+        let msg = preN === T ? `You found all ${T}.` : `You found ${preN} of ${T} on your own` + (post ? `, and ${post} more after a hint.` : '.');
+        msg += sideNote(X);
+        if (falseTaps) msg += ` ${plural(falseTaps, 'wrong tap')}.`;
+        finish(clip((preN + post * 0.5) / T - falseTaps * 0.03), msg, X);
+      });
+      stage.append(grid, cue, btn);
+    }
+  },
+  {
+    id: 'word', area: AREAS[0], name: 'Read all of it', what: 'Catch the left side of words and numbers', trials: 6, max: 4,
+    how: lv => 'Read it from the far left. Then tap the one that matches exactly.',
+    run(lv, stage, finish) {
+      let target, foils;
+      if (lv === 3) {
+        const len = 4 + rnd(2); let d = '';
+        while (d.length < len) d += String(1 + rnd(9));
+        let alt; do { alt = String(1 + rnd(9)); } while (alt === d[0]);
+        const money = x => '$' + Number(x).toLocaleString('en-US');
+        target = money(d); foils = [money(d.slice(1)), money(alt + d.slice(1)), money(d.slice(2))];
+      } else { const it = fresh(WORDS[lv]); target = it[0]; foils = it.slice(1); }
+      const leftFoil = foils[0];
+      stage.append(
+        h('div', { class: 'bigword', text: target }),
+        choices(shuffle([target, ...foils]), target, (ok, o) => {
+          const lm = o === leftFoil ? 1 : 0;
+          finish(ok ? 1 : 0, ok ? `Yes, ${target}.` : `It says “${target}”.` + (lm ? ' The left part got missed.' : ''), { lm: [lm, 1] });
+        })
+      );
+    }
+  },
+  {
+    id: 'trail', area: AREAS[1], name: 'Connect in order', what: 'Keep your place and switch back and forth', trials: 2, max: 5,
+    how: lv => lv < 4 ? 'Tap the numbers in order: 1, 2, 3, and so on.' : 'Switch between numbers and letters: 1, A, 2, B, 3, C, and so on.',
+    run(lv, stage, finish) {
+      const c = [0, { n: 6 }, { n: 10 }, { n: 14 }, { n: 8, alt: 1 }, { n: 12, alt: 1 }][lv];
+      const labels = range(c.n).map(i => c.alt ? (i % 2 ? String.fromCharCode(65 + (i - 1) / 2) : String(i / 2 + 1)) : String(i + 1));
+      const w = stage.clientWidth || 640, cols = w < 520 ? 4 : 6, rows = Math.max(3, Math.ceil(c.n * 1.5 / cols));
+      const top = stage.getBoundingClientRect().top || 160;
+      const bh = Math.max(rows * 92, Math.min(rows * 150, (window.innerHeight || 800) - top - 40));
+      const board = h('div', { class: 'board', style: `height:${Math.round(bh)}px` });
+      const lines = s('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'lines', 'aria-hidden': 'true' });
+      board.append(lines);
+      const spots = shuffle(range(cols * rows)).slice(0, c.n).map(k => ({
+        x: ((k % cols) + 0.35 + Math.random() * 0.3) / cols * 100,
+        y: (Math.floor(k / cols) + 0.35 + Math.random() * 0.3) / rows * 100
+      }));
+      let next = 0, errors = 0, streak = 0;
+      const nodes = spots.map((p, i) => {
+        const b = h('button', { class: 'node', type: 'button', text: labels[i], style: `left:${p.x}%;top:${p.y}%` });
+        b.addEventListener('click', () => {
+          if (i < next) return;
+          if (i === next) {
+            streak = 0; b.classList.remove('hint'); b.classList.add('done');
+            if (i > 0) { const q = spots[i - 1]; lines.append(s('line', { x1: q.x, y1: q.y, x2: p.x, y2: p.y })); }
+            next++;
+            if (next === c.n) finish(c.n / (c.n + errors), errors ? `Finished, with ${plural(errors, 'wrong tap')}.` : 'All in order, no mistakes.');
+          } else { errors++; streak++; flash(b); if (streak >= 2) nodes[next].classList.add('hint'); }
+        });
+        return b;
+      });
+      board.append(...nodes);
+      stage.append(board);
+    }
+  },
+  {
+    id: 'alert', area: AREAS[1], name: 'Stay alert', what: 'Hold your focus for a full minute', trials: 1, max: 5,
+    how: lv => lv < 3 ? 'Shapes will appear one at a time. Tap the button every time you see a star ★.'
+      : lv === 3 ? 'Tap the button for a star ★, but not when the star has a ring around it.'
+      : 'Tap the button when a shape is the same as the one just before it.',
+    run(lv, stage, finish) {
+      const c = [0, { m: 't', ms: 1700, n: 18 }, { m: 't', ms: 1200, n: 24 }, { m: 'ring', ms: 1600, n: 24 }, { m: 'back', ms: 2000, n: 20 }, { m: 'back', ms: 1400, n: 26 }][lv];
+      const SH = ['★', '●', '▲', '■'];
+      let seq, T;
+      do {
+        seq = [];
+        for (let i = 0; i < c.n; i++) {
+          if (c.m === 'back') {
+            const prev = seq[i - 1], rep = i > 0 && Math.random() < 0.3;
+            seq.push({ sym: rep ? prev.sym : pick(SH.filter(x => !prev || x !== prev.sym)), go: rep });
+          } else {
+            const star = Math.random() < (c.m === 'ring' ? 0.5 : 0.3), ring = c.m === 'ring' && Math.random() < 0.35;
+            seq.push({ sym: star ? '★' : pick(SH.slice(1)), ring, go: star && !ring });
+          }
+        }
+        T = seq.filter(x => x.go).length;
+      } while (T < 4 || T > c.n * 0.45);
+      const box = h('div', { class: 'flashbox' });
+      const note = h('p', { class: 'cue', text: '\u00a0' });
+      const bar = h('i');
+      const tapBtn = h('button', { class: 'btn tap', type: 'button', text: 'Tap', disabled: true });
+      let i = -1, responded = true, hits = 0, fa = 0, running = false;
+      const respond = () => {
+        if (!running || responded) return;
+        responded = true;
+        if (seq[i].go) { hits++; box.dataset.r = 'good'; note.textContent = '✓ Got it'; }
+        else { fa++; box.dataset.r = 'bad'; note.textContent = '✕ Not that one'; }
+      };
+      tapBtn.addEventListener('pointerdown', e => { e.preventDefault(); respond(); });
+      tapBtn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) respond(); } });
+      const step = () => {
+        i++;
+        if (i >= seq.length) {
+          running = false; box.replaceChildren(); delete box.dataset.r; note.textContent = '\u00a0';
+          let msg = `You caught ${hits} of ${T}.`;
+          if (fa) msg += ` ${plural(fa, 'extra tap')}.`;
+          finish(clip((hits - fa) / T), msg, { hit: [hits, T] });
+          return;
+        }
+        responded = false; delete box.dataset.r; note.textContent = '\u00a0';
+        box.replaceChildren(h('span', { class: seq[i].ring ? 'ringed' : '', text: seq[i].sym }));
+        bar.style.width = ((i + 1) / seq.length * 100) + '%';
+        later(() => box.replaceChildren(), c.ms * 0.72);
+        later(step, c.ms);
+      };
+      const start = h('button', { class: 'btn', type: 'button', text: 'Start' });
+      start.addEventListener('click', () => { start.remove(); tapBtn.disabled = false; running = true; later(step, 800); });
+      box.append(start);
+      stage.append(box, h('div', { class: 'prog' }, bar), note, tapBtn);
+    }
+  },
+  {
+    id: 'copy', area: AREAS[2], name: 'Copy the pattern', what: 'Rebuild a design square by square', trials: 3, max: 5,
+    how: lv => 'Make your grid match the pattern. Tap a square to fill it, tap again to clear it.',
+    run(lv, stage, finish) {
+      const c = [0, { g: 3, k: 3 }, { g: 4, k: 5 }, { g: 5, k: 7 }, { g: 5, k: 10 }, { g: 6, k: 13 }][lv];
+      const n = c.g * c.g, model = new Set(shuffle(range(n)).slice(0, c.k)), mine = new Set();
+      const a = makeGrid(c.g, false);
+      model.forEach(i => a.cells[i].classList.add('on'));
+      const b = makeGrid(c.g, true, i => {
+        if (mine.has(i)) { mine.delete(i); b.cells[i].classList.remove('on'); } else { mine.add(i); b.cells[i].classList.add('on'); }
+      });
+      const btn = h('button', { class: 'btn', type: 'button', text: 'Check my copy' });
+      btn.addEventListener('click', () => {
+        let missed = 0, extra = 0;
+        const X = { L: [0, 0], R: [0, 0] };
+        range(n).forEach(i => {
+          const m = model.has(i), y = mine.has(i), col = i % c.g;
+          if (m && !y) { missed++; b.cells[i].classList.add('missed'); }
+          if (!m && y) { extra++; b.cells[i].classList.remove('on'); b.cells[i].classList.add('extra'); }
+          if (m) { const side = col < Math.floor(c.g / 2) ? 'L' : col >= Math.ceil(c.g / 2) ? 'R' : null; if (side) { X[side][1]++; if (y) X[side][0]++; } }
+        });
+        const msg = !missed && !extra ? 'An exact copy.' : `${missed} missed and ${extra} extra.` + sideNote(X);
+        finish(clip(1 - (missed + extra) / c.k), msg, X);
+      });
+      stage.append(h('div', { class: 'pair' }, h('div', null, h('h3', { text: 'Pattern' }), a.grid), h('div', null, h('h3', { text: 'Your copy' }), b.grid)), btn);
+    }
+  },
+  {
+    id: 'clock', area: AREAS[2], name: 'Read the clock', what: 'Tell time from the hands', trials: 5, max: 5,
+    how: lv => 'What time does the clock show? The short dark hand is the hour.',
+    run(lv, stage, finish) {
+      const five = range(12).map(i => i * 5);
+      const mins = [0, [0], [0, 30], [0, 15, 30, 45], five, five][lv];
+      const hh = 1 + rnd(12), mm = pick(mins);
+      const f = (a, b) => a + ':' + String(b).padStart(2, '0');
+      const target = f(hh, mm), set = new Set([target]);
+      set.add(f((12 - hh) || 12, (60 - mm) % 60));
+      if (mm) set.add(f(Math.round(mm / 5) || 12, (hh % 12) * 5));
+      let guard = 0;
+      while (set.size < 4 && guard++ < 80) set.add(f(1 + rnd(12), pick(mins)));
+      const svg = s('svg', { viewBox: '0 0 200 200', class: 'clock', role: 'img', 'aria-label': 'Clock face' });
+      svg.append(s('circle', { cx: 100, cy: 100, r: 95, class: 'face' }));
+      for (let i = 0; i < 60; i++) {
+        const a = i * 6 * Math.PI / 180, r1 = i % 5 ? 89 : 84;
+        svg.append(s('line', { x1: 100 + Math.sin(a) * r1, y1: 100 - Math.cos(a) * r1, x2: 100 + Math.sin(a) * 93, y2: 100 - Math.cos(a) * 93, class: i % 5 ? 'tick' : 'tick major' }));
+      }
+      if (lv < 5) for (let k = 1; k <= 12; k++) {
+        const a = k * 30 * Math.PI / 180;
+        const t = s('text', { x: 100 + Math.sin(a) * 71, y: 100 - Math.cos(a) * 71, class: 'num', 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+        t.textContent = k; svg.append(t);
+      }
+      svg.append(
+        s('line', { x1: 100, y1: 100, x2: 100, y2: 56, class: 'hand hour', transform: `rotate(${(hh % 12 + mm / 60) * 30} 100 100)` }),
+        s('line', { x1: 100, y1: 100, x2: 100, y2: 26, class: 'hand minute', transform: `rotate(${mm * 6} 100 100)` }),
+        s('circle', { cx: 100, cy: 100, r: 5, class: 'pin' })
+      );
+      stage.append(svg, choices(shuffle([...set]), target, ok => finish(ok ? 1 : 0, ok ? `Yes, ${target}.` : `The clock shows ${target}.`)));
+    }
+  },
+  {
+    id: 'memory', area: AREAS[3], name: 'Remember the squares', what: 'Hold a picture in your mind', trials: 4, max: 6,
+    how: lv => 'Some squares will light up, then go dark. Tap the ones that were lit.',
+    run(lv, stage, finish) {
+      const c = [0, { g: 3, k: 2, ms: 2500 }, { g: 3, k: 3, ms: 3000 }, { g: 4, k: 4, ms: 3000 }, { g: 4, k: 5, ms: 3500 }, { g: 5, k: 6, ms: 4000 }, { g: 5, k: 8, ms: 4500 }][lv];
+      const n = c.g * c.g, lit = new Set(shuffle(range(n)).slice(0, c.k)), mine = new Set();
+      let phase = 'wait';
+      const note = h('p', { class: 'cue', role: 'status', text: 'Press the button when you’re ready.' });
+      const G = makeGrid(c.g, true, i => {
+        if (phase !== 'answer') return;
+        if (mine.has(i)) { mine.delete(i); G.cells[i].classList.remove('on'); } else { mine.add(i); G.cells[i].classList.add('on'); }
+        if (mine.size === c.k) { phase = 'done'; later(check, 350); }
+      });
+      function check() {
+        let ok = 0; const X = { L: [0, 0], R: [0, 0] };
+        range(n).forEach(i => {
+          const a = lit.has(i), b = mine.has(i), col = i % c.g, el = G.cells[i];
+          el.classList.remove('on');
+          if (a && b) { ok++; el.classList.add('hit'); } else if (a) el.classList.add('missed'); else if (b) el.classList.add('extra');
+          if (a) { const side = col < Math.floor(c.g / 2) ? 'L' : col >= Math.ceil(c.g / 2) ? 'R' : null; if (side) { X[side][1]++; if (b) X[side][0]++; } }
+        });
+        finish(ok / c.k, ok === c.k ? `All ${c.k} right.` : `${ok} of ${c.k} right. The dashed squares are the ones you missed.`, X);
+      }
+      const go = h('button', { class: 'btn', type: 'button', text: 'Show the squares' });
+      go.addEventListener('click', () => {
+        go.hidden = true; phase = 'show';
+        lit.forEach(i => G.cells[i].classList.add('on'));
+        note.textContent = 'Remember these squares.';
+        later(() => { G.cells.forEach(x => x.classList.remove('on')); phase = 'answer'; note.textContent = `Tap the ${c.k} squares that were lit.`; }, c.ms);
+      });
+      stage.append(note, G.grid, h('div', { class: 'btnrow' }, go));
+    }
+  },
+  {
+    id: 'steps', area: AREAS[4], name: 'Put the steps in order', what: 'Plan an everyday task start to finish', trials: 2, max: 4,
+    how: lv => 'Tap the steps in the order you would do them, first step first.',
+    run(lv, stage, finish) {
+      const it = fresh(STEPS), n = lv + 2;
+      const idx = shuffle(range(6)).slice(0, n).sort((a, b) => a - b);
+      const steps = idx.map(i => it[i + 1]);
+      let order; do { order = shuffle(range(n)); } while (order.every((v, i) => v === i));
+      let next = 0, errors = 0, streak = 0;
+      const done = h('ol', { class: 'ordered' }), pool = h('div', { class: 'pool' }), btns = {};
+      order.forEach(i => {
+        const b = h('button', { class: 'opt', type: 'button', text: steps[i] });
+        b.addEventListener('click', () => {
+          if (i === next) {
+            streak = 0; b.remove(); done.append(h('li', { text: steps[i] })); next++;
+            if (next === n) finish(n / (n + errors), errors ? `Done, with ${plural(errors, 'wrong try').replace('trys', 'tries')}.` : 'Every step in the right order.');
+          } else { errors++; streak++; flash(b); if (streak >= 2) btns[next].classList.add('hint'); }
+        });
+        btns[i] = b; pool.append(b);
+      });
+      stage.append(h('h2', { class: 'task', text: it[0] }), done, pool);
+    }
+  },
+  {
+    id: 'meaning', area: AREAS[4], name: 'Read between the lines', what: 'Sayings, hints, tone, and good judgment', trials: 5, max: 4,
+    how: lv => 'Read it, then choose the best answer.',
+    run(lv, stage, finish) {
+      const it = fresh(MEAN[lv]);
+      const opts = shuffle(it.slice(1));
+      const q = ['', 'What does this mean?', 'What is most likely true?', 'What is really going on?', 'What is the best choice?'][lv];
+      stage.append(
+        h('div', { class: 'instr-row' }, h('p', { class: 'scenario', text: it[0] }), listenBtn(it[0] + ' ' + q + ' ' + opts.join('. ') + '.')),
+        h('p', { class: 'q', text: q }),
+        choices(opts, it[1], ok => finish(ok ? 1 : 0, ok ? 'That’s it.' : `Best answer: ${it[1]}.`), 'col')
+      );
+    }
+  },
+  {
+    id: 'routine', area: 'My routines', name: 'Remember my routines', what: 'The morning fire and the coffee burner', trials: 6, max: 2,
+    how: lv => 'Pick the safe choice. Some questions show the stove.',
+    run(lv, stage, finish) {
+      run.rt = (run.rt || 0) + 1;
+      if (run.rt % 2 === 0) {
+        const n = lv === 1 ? 4 : 5, pot = rnd(n);
+        const lit = Math.random() < 0.45 ? pot : pick(range(n).filter(i => i !== pot));
+        const ok = lit === pot, yes = 'Yes, it’s the right burner', no = 'No, a different burner is on';
+        stage.append(
+          h('p', { class: 'scenario', text: 'The coffee pot is on the stove. Is the burner under the pot the one that’s on?' }),
+          h('div', { class: 'stovewrap' }, stoveSvg(n, pot, lit)),
+          choices([yes, no], ok ? yes : no, right => {
+            const msg = ok ? 'The burner under the pot is the one that’s on.'
+              : `The ${BURNER[n][lit]} burner is on, but the pot is on the ${BURNER[n][pot]}. Turn off the ${BURNER[n][lit]} and turn on the ${BURNER[n][pot]}.`;
+            finish(right ? 1 : 0, (right ? 'Good check. ' : '') + msg);
+          })
+        );
+        return;
+      }
+      S.rmiss = Array.isArray(S.rmiss) ? S.rmiss : [];
+      let i;
+      const due = S.rmiss.filter(k => k < ROUTINE.length && !(run.used && run.used.has(ROUTINE[k])));
+      if (due.length && Math.random() < 0.6) { i = pick(due); run.used = run.used || new Set(); run.used.add(ROUTINE[i]); }
+      else i = ROUTINE.indexOf(fresh(ROUTINE));
+      const it = ROUTINE[i];
+      stage.append(
+        h('div', { class: 'instr-row' }, h('div', null, h('p', { class: 'muted', text: it[0], style: 'margin:0 0 0.3rem' }), h('p', { class: 'scenario', text: it[1] })), listenBtn(it[1])),
+        choices(shuffle(it.slice(2)), it[2], right => {
+          S.rmiss = S.rmiss.filter(k => k !== i);
+          if (!right) S.rmiss.push(i);
+          save();
+          finish(right ? 1 : 0, right ? 'That’s the safe way.' : `The safe answer: ${it[2]}.`);
+        }, 'col')
+      );
+    }
+  }
+];
+const byId = {}; EX.forEach(e => byId[e.id] = e);
+const levelOf = id => Math.max(1, Math.min(byId[id].max, S.levels[id] || 1));
+const lastOf = id => { for (let i = S.history.length - 1; i >= 0; i--) if (S.history[i].id === id) return S.history[i]; return null; };
+
+/* ---------- running a session ---------- */
+function mergeX(list) {
+  if (!list.length) return null;
+  const o = {};
+  for (const x of list) for (const k in x) {
+    const v = x[k];
+    if (Array.isArray(v)) { o[k] = o[k] || v.map(() => 0); v.forEach((n, i) => o[k][i] += n); }
+  }
+  return o;
+}
+function pickSession() {
+  return AREAS.map(a => {
+    const list = EX.filter(e => e.area === a);
+    list.sort((p, q) => ((lastOf(p.id) || {}).t || 0) - ((lastOf(q.id) || {}).t || 0));
+    return list[0].id;
+  });
+}
+function startSession() { run = { queue: pickSession(), qi: 0, session: true, results: [], started: Date.now() }; showIntro(); }
+function startSingle(id) { run = { queue: [id], qi: 0, session: false, results: [], started: Date.now() }; showIntro(); }
+
+function topBar(title, right) {
+  return h('header', { class: 'top' },
+    h('button', { class: 'btn quiet small', type: 'button', text: 'Stop', onclick: showHome }),
+    h('h2', { text: title }),
+    h('span', { class: 'count', text: right || '' }));
+}
+function showIntro() {
+  clearTimers();
+  const ex = byId[run.queue[run.qi]];
+  run.ex = ex; run.level = levelOf(ex.id); run.ti = 0; run.scores = []; run.extras = [];
+  const instr = ex.how(run.level);
+  screen(
+    topBar(run.session ? `Exercise ${run.qi + 1} of ${run.queue.length}` : ex.area, ''),
+    h('h1', { text: ex.name }),
+    h('p', { class: 'muted', text: `${ex.what}. Level ${run.level} of ${ex.max}.` }),
+    h('div', { class: 'instr-row', style: 'margin-top:1.4rem' }, h('p', { class: 'instr', text: instr }), listenBtn(instr)),
+    h('button', { class: 'btn big', type: 'button', text: 'Start', onclick: showTrial })
+  );
+  if (S.settings.voice) say(ex.name + '. ' + instr);
+}
+function showTrial() {
+  clearTimers();
+  const ex = run.ex, instr = ex.how(run.level);
+  const stage = h('div', { class: 'stage' });
+  const fb = h('div', { class: 'fb', hidden: true, role: 'status' });
+  let done = false;
+  screen(
+    topBar(ex.name, ex.trials > 1 ? `${run.ti + 1} of ${ex.trials}` : ''),
+    h('div', { class: 'instr-row' }, h('p', { class: 'instr', text: instr }), ex.id === 'meaning' || ex.id === 'routine' ? null : listenBtn(instr)),
+    stage, fb
+  );
+  const finish = (score, msg, extra) => {
+    if (done) return; done = true;
+    score = clip(score);
+    run.scores.push(score); if (extra) run.extras.push(extra);
+    stage.classList.add('locked');
+    const kind = score >= 0.999 ? 'good' : score >= 0.5 ? 'part' : 'bad';
+    tone(kind !== 'bad');
+    fb.dataset.kind = kind;
+    const last = run.ti + 1 >= ex.trials;
+    const nextBtn = h('button', { class: 'btn', type: 'button', text: last ? 'Finish' : 'Next' });
+    nextBtn.addEventListener('click', () => { run.ti++; if (run.ti < ex.trials) showTrial(); else endBlock(); });
+    fb.replaceChildren(h('div', null, h('h2', { text: kind === 'good' ? '✓ Correct' : kind === 'part' ? 'Almost' : '✕ Not quite' }), h('p', { text: msg || '' })), nextBtn);
+    fb.hidden = false;
+    try { nextBtn.focus({ preventScroll: true }); fb.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  };
+  ex.run(run.level, stage, finish);
+}
+function endBlock() {
+  const ex = run.ex, mean = run.scores.reduce((a, b) => a + b, 0) / run.scores.length;
+  let lv = run.level, change = 'same';
+  if (mean >= 0.85 && lv < ex.max) { lv++; change = 'up'; }
+  else if (mean < 0.5 && lv > 1) { lv--; change = 'down'; }
+  const x = mergeX(run.extras);
+  S.levels[ex.id] = lv;
+  S.history.push({ t: Date.now(), id: ex.id, lv: run.level, sc: Math.round(mean * 100) / 100, x });
+  if (S.history.length > 800) S.history = S.history.slice(-800);
+  save();
+  run.results.push({ ex, score: mean, level: run.level, next: lv, change, x });
+  if (run.qi + 1 < run.queue.length) { run.qi++; showIntro(); } else showSummary();
+}
+function showSummary() {
+  clearTimers();
+  const mins = Math.max(1, Math.round((Date.now() - run.started) / 60000));
+  const single = !run.session, id = run.queue[0];
+  const items = run.results.map(r => {
+    let note = r.change === 'up' ? `Moving up to level ${r.next} next time.` : r.change === 'down' ? `Stepping back to level ${r.next} next time.` : `Staying at level ${r.next}.`;
+    if (r.x && r.x.L && r.x.R && r.x.L[1] && r.x.R[1]) note += ` Left side ${r.x.L[0]} of ${r.x.L[1]}, right side ${r.x.R[0]} of ${r.x.R[1]}.`;
+    return h('li', null, h('span', { class: 'ex-name', text: r.ex.name }), h('span', { class: 'score', text: pct(r.score) }), h('small', { text: note }));
+  });
+  screen(
+    h('h1', { text: single ? 'Exercise done' : 'Workout done' }),
+    h('p', { class: 'muted', text: `That took about ${plural(mins, 'minute')}.` }),
+    h('div', { class: 'group', style: 'margin-top:1.2rem' }, h('ul', { class: 'results', style: 'margin:0' }, items)),
+    h('div', { class: 'btnrow' },
+      h('button', { class: 'btn', type: 'button', text: 'Back to home', onclick: showHome }),
+      single ? h('button', { class: 'btn quiet', type: 'button', text: 'Do it again', onclick: () => startSingle(id) }) : null)
+  );
+}
+
+/* ---------- home, progress, settings ---------- */
+const dayKey = t => new Date(t).toDateString();
+function weekDots() {
+  const days = new Set(S.history.map(x => dayKey(x.t)));
+  const row = h('div', { class: 'week' }); let n = 0;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const on = days.has(d.toDateString()); if (on) n++;
+    row.append(h('b', { class: on ? 'on' : '', text: 'SMTWTFS'[d.getDay()] }));
+  }
+  row.append(h('span', { text: `Practiced ${n} of the last 7 days` }));
+  return row;
+}
+function showHome() {
+  clearTimers(); run = null;
+  const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const nm = S.settings.name;
+  const groups = AREAS.map(a => [
+    h('h2', { class: 'area', text: a }),
+    h('div', { class: 'group' }, EX.filter(e => e.area === a).map(e => {
+      const last = lastOf(e.id);
+      return h('button', { class: 'ex', type: 'button', onclick: () => startSingle(e.id) },
+        h('span', { class: 'ex-name', text: e.name }), h('span', { class: 'ex-meta', text: `Level ${levelOf(e.id)}` }),
+        h('span', { class: 'ex-what', text: e.what }), h('span', { class: 'ex-meta', text: last ? 'Last time ' + pct(last.sc) : 'New' }));
+    }))
+  ]);
+  screen(
+    h('header', { class: 'top' }, h('h1', { text: 'Brain Gym' }),
+      h('nav', null,
+        h('button', { class: 'btn quiet small', type: 'button', text: 'Progress', onclick: showProgress }),
+        h('button', { class: 'btn quiet small', type: 'button', text: 'Settings', onclick: showSettings }))),
+    h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
+    h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
+    h('p', { class: 'muted', text: `${AREAS.length} exercises, about 12 minutes.` }),
+    weekDots(),
+    groups
+  );
+}
+function backBar(title) {
+  return h('header', { class: 'top' }, h('button', { class: 'btn quiet small', type: 'button', text: 'Back', onclick: showHome }), h('h1', { text: title }), h('span'));
+}
+function miniChart(list) {
+  const svg = s('svg', { viewBox: '0 0 120 30', class: 'mini', role: 'img', 'aria-label': 'Recent scores: ' + list.map(x => pct(x.sc)).join(', ') });
+  svg.append(s('rect', { x: 0, y: 29, width: 120, height: 1, class: 'base' }));
+  list.forEach((x, i) => { const hgt = Math.max(2, x.sc * 28); svg.append(s('rect', { x: i * 10 + 1, y: 29 - hgt, width: 8, height: hgt, rx: 1.5 })); });
+  return svg;
+}
+function showProgress() {
+  clearTimers();
+  if (!S.history.length) {
+    screen(backBar('Progress'), h('p', { text: 'No workouts yet. Start today’s workout and your scores will show up here.' }),
+      h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }));
+    return;
+  }
+  const scans = S.history.filter(x => x.id === 'scan' && x.x && x.x.L).slice(-8);
+  let sides = null;
+  if (scans.length) {
+    const L = [0, 0], R = [0, 0];
+    scans.forEach(x => { L[0] += x.x.L[0]; L[1] += x.x.L[1]; R[0] += x.x.R[0]; R[1] += x.x.R[1]; });
+    const row = (label, v) => h('div', { class: 'side' }, h('span', { text: label }), h('div', null, h('i', { style: `width:${v[1] ? v[0] / v[1] * 100 : 0}%` })), h('b', { text: v[1] ? pct(v[0] / v[1]) : '' }));
+    sides = [h('h2', { class: 'area', text: `Find them all: found without a hint, last ${plural(scans.length, 'round')}` }),
+      h('div', { class: 'group' }, row('Left side', L), row('Right side', R))];
+  }
+  const rows = EX.map(e => {
+    const list = S.history.filter(x => x.id === e.id).slice(-12);
+    return h('li', null,
+      h('span', { class: 'ex-name', text: e.name }),
+      list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
+      h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
+  });
+  screen(backBar('Progress'), weekDots(), sides,
+    h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
+    h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
+}
+function showSettings() {
+  clearTimers();
+  const sw = (label, key) => {
+    const state = h('em', { text: S.settings[key] ? 'On' : 'Off' });
+    const b = h('button', { class: 'switch', type: 'button', role: 'switch', 'aria-checked': String(!!S.settings[key]) }, h('span', { text: label }), state);
+    b.addEventListener('click', () => {
+      S.settings[key] = !S.settings[key]; save(); applySettings();
+      b.setAttribute('aria-checked', String(S.settings[key])); state.textContent = S.settings[key] ? 'On' : 'Off';
+      if (key === 'sound' && S.settings.sound) tone(true);
+    });
+    return b;
+  };
+  const name = h('input', { type: 'text', id: 'nm', maxlength: '30', value: S.settings.name, autocomplete: 'off' });
+  name.addEventListener('input', () => { S.settings.name = name.value.trim().slice(0, 30); save(); });
+  const levels = EX.map(e => {
+    const label = h('span', { text: `Level ${levelOf(e.id)} of ${e.max}` });
+    const set = d => { S.levels[e.id] = Math.max(1, Math.min(e.max, levelOf(e.id) + d)); save(); label.textContent = `Level ${levelOf(e.id)} of ${e.max}`; };
+    return h('div', { class: 'field' }, h('span', { class: 'ex-name', text: e.name }),
+      h('div', { class: 'stepper' },
+        h('button', { type: 'button', 'aria-label': `Lower level for ${e.name}`, text: '−', onclick: () => set(-1) }), label,
+        h('button', { type: 'button', 'aria-label': `Raise level for ${e.name}`, text: '+', onclick: () => set(1) })));
+  });
+  let armed = false;
+  const reset = h('button', { class: 'btn quiet', type: 'button', text: 'Erase all scores' });
+  reset.addEventListener('click', () => {
+    if (!armed) { armed = true; reset.textContent = 'Tap again to erase everything'; return; }
+    const keep = S.settings; S = blank(); S.settings = keep; save(); showSettings();
+  });
+  screen(backBar('Settings'),
+    h('div', { class: 'group' },
+      h('div', { class: 'field' }, h('label', { for: 'nm', text: 'First name' }), name),
+      sw('Larger text', 'big'),
+      sw('Red guide line on the left edge', 'guide'),
+      sw('Sounds', 'sound'),
+      canSpeak ? sw('Read instructions aloud', 'voice') : null),
+    h('h2', { class: 'area', text: 'Difficulty. It adjusts on its own, or set it here' }),
+    h('div', { class: 'group' }, levels),
+    h('div', { class: 'btnrow' }, reset),
+    h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' })
+  );
+}
+
+/*TEST*/
+applySettings();
+showHome();
+})();
+</script>
+</body>
+</html>
