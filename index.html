@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Brain Gym">
 <meta name="theme-color" content="#0E5A60">
+<meta name="robots" content="noindex, nofollow">
 <link rel="apple-touch-icon" href="icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -254,6 +255,14 @@ div.cell{ cursor:default; }
 .tlines{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
 .tline{ stroke:var(--bad); stroke-width:5; stroke-dasharray:10 8; stroke-linecap:round; }
 .track-status{ font-size:1.25rem; min-height:1.6em; }
+.photo{ position:relative; max-width:40rem; margin:1.2rem 0 0; border-radius:0.8rem; overflow:hidden; background:var(--cell); }
+.photo.small{ max-width:24rem; margin-top:0.4rem; }
+.photo img{ display:block; width:100%; height:auto; max-height:62vh; object-fit:contain; }
+.cover{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(4, 1fr); grid-template-rows:repeat(3, 1fr); }
+.cover i{ background:var(--primary); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.22); transition:opacity 0.7s ease, transform 0.7s ease; }
+.cover i.gone{ opacity:0; transform:scale(0.85); }
+@media (prefers-reduced-motion: reduce){ .cover i{ transition:none; } }
+.caption{ font-size:1.25rem; font-weight:700; margin:0.6rem 0 0; max-width:40rem; }
 </style>
 </head>
 <body>
@@ -520,7 +529,7 @@ function sideNote(X) {
 
 const EX = [
   {
-    id: 'scan', area: AREAS[0], name: 'Find them all', what: 'Search the whole page, edge to edge', trials: 2, max: 5,
+    id: 'scan', area: 'Looking left and scanning', name: 'Find them all', what: 'Search the whole page, edge to edge', trials: 2, max: 5,
     how: lv => ['', 'Tap every star ★.', 'Tap every star ★.', 'Tap every letter A.', 'Tap every letter b.', 'Tap every b and every q.'][lv] + ' Start at the far left and work across each row.',
     run(lv, stage, finish) {
       const c = [0, { n: 24, t: 6, tg: ['★'], d: ['●'] }, { n: 40, t: 8, tg: ['★'], d: ['●', '▲', '■'] },
@@ -577,7 +586,7 @@ const EX = [
     }
   },
   {
-    id: 'word', area: AREAS[0], name: 'Read all of it', what: 'Catch the left side of words and numbers', trials: 6, max: 4,
+    id: 'word', area: 'Looking left and scanning', name: 'Read all of it', what: 'Catch the left side of words and numbers', trials: 6, max: 4,
     how: lv => 'Read it from the far left. Then tap the one that matches exactly.',
     run(lv, stage, finish) {
       let target, foils;
@@ -599,7 +608,7 @@ const EX = [
     }
   },
   {
-    id: 'trail', area: AREAS[1], name: 'Connect in order', what: 'Keep your place and switch back and forth', trials: 2, max: 5,
+    id: 'trail', area: 'Attention', name: 'Connect in order', what: 'Keep your place and switch back and forth', trials: 2, max: 5,
     how: lv => lv < 4 ? 'Tap the numbers in order: 1, 2, 3, and so on.' : 'Switch between numbers and letters: 1, A, 2, B, 3, C, and so on.',
     run(lv, stage, finish) {
       const c = [0, { n: 6 }, { n: 10 }, { n: 14 }, { n: 8, alt: 1 }, { n: 12, alt: 1 }][lv];
@@ -633,7 +642,7 @@ const EX = [
     }
   },
   {
-    id: 'alert', area: AREAS[1], name: 'Stay alert', what: 'Hold your focus for a full minute', trials: 1, max: 5,
+    id: 'alert', area: 'Attention', name: 'Stay alert', what: 'Hold your focus for a full minute', trials: 1, max: 5,
     how: lv => lv < 3 ? 'Shapes will appear one at a time. Tap the button every time you see a star ★.'
       : lv === 3 ? 'Tap the button for a star ★, but not when the star has a ring around it.'
       : 'Tap the button when a shape is the same as the one just before it.',
@@ -689,7 +698,7 @@ const EX = [
     }
   },
   {
-    id: 'copy', area: AREAS[2], name: 'Copy the pattern', what: 'Rebuild a design square by square', trials: 3, max: 5,
+    id: 'copy', area: 'Space and shapes', name: 'Copy the pattern', what: 'Rebuild a design square by square', trials: 3, max: 5,
     how: lv => 'Make your grid match the pattern. Tap a square to fill it, tap again to clear it.',
     run(lv, stage, finish) {
       const c = [0, { g: 3, k: 3 }, { g: 4, k: 5 }, { g: 5, k: 7 }, { g: 5, k: 10 }, { g: 6, k: 13 }][lv];
@@ -716,7 +725,7 @@ const EX = [
     }
   },
   {
-    id: 'clock', area: AREAS[2], name: 'Read the clock', what: 'Tell time from the hands', trials: 5, max: 5,
+    id: 'clock', area: 'Space and shapes', name: 'Read the clock', what: 'Tell time from the hands', trials: 5, max: 5,
     how: lv => 'What time does the clock show? The short dark hand is the hour.',
     run(lv, stage, finish) {
       const five = range(12).map(i => i * 5);
@@ -852,7 +861,7 @@ const EX = [
     }
   },
   {
-    id: 'memory', area: AREAS[3], name: 'Remember the squares', what: 'Hold a picture in your mind', trials: 4, max: 6,
+    id: 'memory', area: 'Memory', name: 'Remember the squares', what: 'Hold a picture in your mind', trials: 4, max: 6,
     how: lv => 'Some squares will light up, then go dark. Tap the ones that were lit.',
     run(lv, stage, finish) {
       const c = [0, { g: 3, k: 2, ms: 2500 }, { g: 3, k: 3, ms: 3000 }, { g: 4, k: 4, ms: 3000 }, { g: 4, k: 5, ms: 3500 }, { g: 5, k: 6, ms: 4000 }, { g: 5, k: 8, ms: 4500 }][lv];
@@ -885,7 +894,7 @@ const EX = [
     }
   },
   {
-    id: 'steps', area: AREAS[4], name: 'Put the steps in order', what: 'Plan an everyday task start to finish', trials: 2, max: 4,
+    id: 'steps', area: 'Thinking it through', name: 'Put the steps in order', what: 'Plan an everyday task start to finish', trials: 2, max: 4,
     how: lv => 'Tap the steps in the order you would do them, first step first.',
     run(lv, stage, finish) {
       const it = fresh(STEPS), n = lv + 2;
@@ -908,7 +917,7 @@ const EX = [
     }
   },
   {
-    id: 'meaning', area: AREAS[4], name: 'Read between the lines', what: 'Sayings, hints, tone, and good judgment', trials: 5, max: 4,
+    id: 'meaning', area: 'Thinking it through', name: 'Read between the lines', what: 'Sayings, hints, tone, and good judgment', trials: 5, max: 4,
     how: lv => 'Read it, then choose the best answer.',
     run(lv, stage, finish) {
       const it = fresh(MEAN[lv]);
@@ -963,6 +972,65 @@ const byId = {}; EX.forEach(e => byId[e.id] = e);
 const levelOf = id => Math.max(1, Math.min(byId[id].max, S.levels[id] || 1));
 const lastOf = id => { for (let i = S.history.length - 1; i >= 0; i--) if (S.history[i].id === id) return S.history[i]; return null; };
 
+
+/* ---------- photo reveal ---------- */
+const TILES = 12;
+let PHOTOS = [];
+const photoReady = (async () => {
+  try {
+    const r = await fetch('photos/list.json', { cache: 'no-cache' });
+    if (!r.ok) return;
+    const j = await r.json();
+    PHOTOS = (Array.isArray(j) ? j : []).map(p => typeof p === 'string' ? { file: p } : p).filter(p => p && typeof p.file === 'string');
+  } catch (e) {}
+})();
+const todayKey = () => new Date().toDateString();
+const photoInfo = P => PHOTOS.find(p => p.file === P.file) || { file: P.file };
+const shownTiles = P => P.done >= P.need ? TILES : Math.floor(TILES * P.done / P.need);
+function photoToday(create) {
+  const P = S.photo;
+  const valid = P && P.date === todayKey() && PHOTOS.some(p => p.file === P.file);
+  if (valid && (P.done < P.need || !create)) return P;
+  if (!create || !PHOTOS.length) return valid ? P : null;
+  const recent = Array.isArray(S.recentPhotos) ? S.recentPhotos : [];
+  let pool = PHOTOS.filter(p => !recent.includes(p.file));
+  if (!pool.length) pool = PHOTOS;
+  const p = pick(pool);
+  S.recentPhotos = [p.file, ...recent.filter(f => f !== p.file)].slice(0, Math.max(0, Math.min(30, PHOTOS.length - 1)));
+  S.photo = { date: todayKey(), file: p.file, order: shuffle(range(TILES)), done: 0, need: AREAS.length };
+  save();
+  return S.photo;
+}
+function photoView(P, prev, small) {
+  const now = shownTiles(P);
+  const info = photoInfo(P);
+  const wrap = h('figure', { class: 'photo' + (small ? ' small' : '') });
+  const img = h('img', { src: 'photos/' + encodeURIComponent(info.file), alt: now >= TILES && info.caption ? info.caption : 'Today’s photo' });
+  img.addEventListener('error', () => { wrap.hidden = true; });
+  const cover = h('div', { class: 'cover', 'aria-hidden': 'true' });
+  const tiles = range(TILES).map(() => h('i'));
+  cover.append(...tiles);
+  const start = prev == null ? now : Math.min(prev, now);
+  P.order.slice(0, start).forEach(k => tiles[k].classList.add('gone'));
+  P.order.slice(start, now).forEach((k, n) => later(() => tiles[k].classList.add('gone'), 450 + n * 220));
+  wrap.append(img, cover);
+  const out = [wrap];
+  if (now >= TILES && info.caption) out.push(h('p', { class: 'caption', text: info.caption }));
+  return out;
+}
+function showReveal(prev) {
+  clearTimers();
+  const P = run.photo;
+  screen(
+    h('h1', { text: pick(['Nice work.', 'Good job.', 'Keep it up.', 'That’s another one.']) }),
+    h('p', { class: 'muted', text: `${P.done} of ${P.need} done. Keep going to see the whole picture.` }),
+    photoView(P, prev),
+    h('div', { class: 'btnrow' },
+      h('button', { class: 'btn big', type: 'button', text: 'Next exercise', onclick: () => { run.qi++; showIntro(); } }),
+      h('button', { class: 'btn quiet', type: 'button', text: 'Stop for now', onclick: showHome }))
+  );
+}
+
 /* ---------- running a session ---------- */
 function mergeX(list) {
   if (!list.length) return null;
@@ -980,7 +1048,7 @@ function pickSession() {
     return list[0].id;
   });
 }
-function startSession() { run = { queue: pickSession(), qi: 0, session: true, results: [], started: Date.now() }; showIntro(); }
+function startSession() { run = { queue: pickSession(), qi: 0, session: true, results: [], started: Date.now(), photo: PHOTOS.length ? photoToday(true) : null }; showIntro(); }
 function startSingle(id) { run = { queue: [id], qi: 0, session: false, results: [], started: Date.now() }; showIntro(); }
 
 function topBar(title, right) {
@@ -1042,7 +1110,15 @@ function endBlock() {
   if (S.history.length > 800) S.history = S.history.slice(-800);
   save();
   run.results.push({ ex, score: mean, level: run.level, next: lv, change, x });
-  if (run.qi + 1 < run.queue.length) { run.qi++; showIntro(); } else showSummary();
+  const more = run.qi + 1 < run.queue.length;
+  if (run.session && run.photo) {
+    const prev = shownTiles(run.photo);
+    run.photo.done = Math.min(run.photo.need, run.photo.done + 1);
+    save();
+    run.prevShown = prev;
+    if (more && prev < TILES) return showReveal(prev);
+  }
+  if (more) { run.qi++; showIntro(); } else showSummary();
 }
 function showSummary() {
   clearTimers();
@@ -1054,8 +1130,9 @@ function showSummary() {
     return h('li', null, h('span', { class: 'ex-name', text: r.ex.name }), h('span', { class: 'score', text: pct(r.score) }), h('small', { text: note }));
   });
   screen(
-    h('h1', { text: single ? 'Exercise done' : 'Workout done' }),
+    h('h1', { text: single ? 'Exercise done' : run.photo ? 'Workout done. Here’s today’s photo.' : 'Workout done' }),
     h('p', { class: 'muted', text: `That took about ${plural(mins, 'minute')}.` }),
+    run.photo ? photoView(run.photo, run.prevShown) : null,
     h('div', { class: 'group', style: 'margin-top:1.2rem' }, h('ul', { class: 'results', style: 'margin:0' }, items)),
     h('div', { class: 'btnrow' },
       h('button', { class: 'btn', type: 'button', text: 'Back to home', onclick: showHome }),
@@ -1097,10 +1174,18 @@ function showHome() {
     h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
     h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
     h('p', { class: 'muted', text: `${AREAS.length} exercises, about 15 minutes.` }),
+    homePhoto(),
     weekDots(),
     groups
   );
 }
+function homePhoto() {
+  const P = PHOTOS.length ? photoToday(false) : null;
+  if (!P) return null;
+  const full = shownTiles(P) >= TILES;
+  return [h('h2', { class: 'area', text: full ? 'Today’s photo' : `Today’s photo: ${P.done} of ${P.need} done. Finish the workout to see it all.` }), photoView(P, null, true)];
+}
+photoReady.then(() => { if (!run && app.querySelector('.greet')) showHome(); });
 function backBar(title) {
   return h('header', { class: 'top' }, h('button', { class: 'btn quiet small', type: 'button', text: 'Back', onclick: showHome }), h('h1', { text: title }), h('span'));
 }
@@ -1176,7 +1261,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.4, October 17, 2026' })
+    h('p', { class: 'note', text: 'Version 1.5, October 17, 2026' })
   );
 }
 
