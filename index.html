@@ -263,6 +263,40 @@ div.cell{ cursor:default; }
 .cover i.gone{ opacity:0; transform:scale(0.85); }
 @media (prefers-reduced-motion: reduce){ .cover i{ transition:none; } }
 .caption{ font-size:1.25rem; font-weight:700; margin:0.6rem 0 0; max-width:40rem; }
+.btnrow.starts{ margin-top:0.4rem; }
+.btnrow.starts .btn.big{ margin-top:0; }
+.group.pad{ padding:1rem; display:grid; gap:0.9rem; justify-items:start; }
+.field.bare{ padding:0; border:0; width:100%; }
+.seg{ display:flex; flex-wrap:wrap; gap:0.5rem; }
+.seg button{ min-height:3rem; padding:0.4rem 1rem; border-radius:0.7rem; border:2px solid var(--line); background:var(--bg); font-weight:700; font-size:1rem; }
+.seg button.on{ border-color:var(--primary); background:var(--primary); color:var(--on-primary); }
+.joinrow{ display:flex; gap:0.7rem; align-items:center; }
+.codein{ font:inherit; font-size:1.6rem; font-weight:700; letter-spacing:0.25em; text-transform:uppercase; width:8.5rem; min-height:3.3rem; padding:0.3rem 0.6rem; color:var(--ink); background:var(--bg); border:2px solid var(--line); border-radius:0.7rem; }
+.mscores{ display:flex; flex-wrap:wrap; gap:0.7rem; margin:0.2rem 0 0.4rem; }
+.chip{ display:flex; align-items:center; gap:0.8rem; padding:0.5rem 1rem; border-radius:999px; border:3px solid var(--line); background:var(--surface); font-weight:700; font-size:1.1rem; }
+.chip b{ font-size:1.4rem; }
+.chip.p0{ border-color:var(--primary); }
+.chip.p1{ border-color:var(--mark); }
+.chip.now{ box-shadow:0 0 0 4px var(--mark); }
+.chip.p0.now{ background:var(--primary); color:var(--on-primary); }
+.chip.p1.now{ background:var(--mark); color:var(--on-mark); }
+.mstatus{ font-size:1.25rem; font-weight:700; min-height:1.6em; margin:0.4rem 0 0.8rem; max-width:none; }
+.mboard{ display:grid; gap:10px; justify-content:start; }
+.mcard{ position:relative; padding:0; border:0; background:transparent; perspective:900px; border-radius:12px; }
+.mcard .inner{ position:absolute; inset:0; transition:transform 0.45s ease; transform-style:preserve-3d; -webkit-transform-style:preserve-3d; }
+.mcard.up .inner{ transform:rotateY(180deg); }
+.mcard .back, .mcard .front{ position:absolute; inset:0; border-radius:12px; overflow:hidden; backface-visibility:hidden; -webkit-backface-visibility:hidden; display:grid; place-items:center; }
+.mcard .back{ background:var(--primary); background-image:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.18) 0 18%, transparent 19%), repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 10px, transparent 10px 20px); }
+.mcard .front{ transform:rotateY(180deg); background:var(--surface); border:3px solid var(--line); }
+.mcard .front img{ width:100%; height:100%; object-fit:cover; display:block; }
+.mcard .emo{ line-height:1; }
+.mcard.got .front{ border-color:var(--good); }
+.mcard.p0 .front{ border:6px solid var(--primary); }
+.mcard.p1 .front{ border:6px solid var(--mark); }
+.mcard[disabled]{ cursor:default; opacity:1; }
+@media (prefers-reduced-motion: reduce){ .mcard .inner{ transition:none; } }
+.waitbox{ grid-column:1 / -1; padding:1.5rem; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; max-width:34rem; }
+.bigcode{ font-size:4rem; font-weight:700; letter-spacing:0.3em; margin:0.2rem 0; }
 </style>
 </head>
 <body>
@@ -1172,7 +1206,9 @@ function showHome() {
         h('button', { class: 'btn quiet small', type: 'button', text: 'Progress', onclick: showProgress }),
         h('button', { class: 'btn quiet small', type: 'button', text: 'Settings', onclick: showSettings }))),
     h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
-    h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
+    h('div', { class: 'btnrow starts' },
+      h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
+      h('button', { class: 'btn big quiet', type: 'button', text: 'Play with family', onclick: showFamily })),
     h('p', { class: 'muted', text: `${AREAS.length} exercises, about 15 minutes.` }),
     homePhoto(),
     weekDots(),
@@ -1261,8 +1297,289 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.5, October 17, 2026' })
+    h('p', { class: 'note', text: 'Version 1.6, October 25, 2026' })
   );
+}
+
+/* ---------- family games: Photo Match ---------- */
+const DECK = ['🐟', '🦌', '🚜', '🐻', '🍎', '⚓', '🏠', '🌲', '☕', '🐶', '🚗', '🎣', '🦆', '🌻'];
+const P_COLORS = ['p0', 'p1'];
+const API = 'api.php';
+let G = null; // { st, v, room, seat, local, poll, busy, els }
+
+async function api(method, body, query) {
+  const r = await fetch(API + (query || ''), {
+    method, cache: 'no-store',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (r.status === 204) return { status: 204 };
+  let j = null; try { j = await r.json(); } catch (e) {}
+  return { status: r.status, j };
+}
+function newDeck(size, usePhotos) {
+  const pairs = size / 2;
+  let faces = [];
+  if (usePhotos && PHOTOS.length) faces = shuffle(PHOTOS).slice(0, pairs).map(p => ({ t: 'p', f: p.file }));
+  shuffle(DECK).slice(0, pairs - faces.length).forEach(e => faces.push({ t: 'e', e }));
+  const cards = shuffle(faces.flatMap((f, k) => [{ k, ...f }, { k, ...f }]));
+  return cards;
+}
+function freshMatch(opts, players) {
+  return {
+    game: 'match', mode: opts.mode, size: opts.size, photos: opts.photos,
+    players, turn: 0, scores: [0, 0], tries: 0,
+    cards: newDeck(opts.size, opts.photos), matched: Array(opts.size).fill(-1), up: [],
+    phase: players[1] ? 'play' : 'wait', msg: '', seq: 0
+  };
+}
+function saveRoom() { try { localStorage.setItem('braingym.room', JSON.stringify({ room: G.room, seat: G.seat, t: Date.now() })); } catch (e) {} }
+function savedRoom() {
+  try { const r = JSON.parse(localStorage.getItem('braingym.room') || 'null'); if (r && Date.now() - r.t < 6 * 3600e3) return r; } catch (e) {}
+  return null;
+}
+function forgetRoom() { try { localStorage.removeItem('braingym.room'); } catch (e) {} }
+
+async function commit(st) {
+  st.seq = (st.seq || 0) + 1;
+  if (G.local) { G.st = st; drawMatch(); return true; }
+  G.st = st; drawMatch();
+  try {
+    const r = await api('POST', { room: G.room, base: G.v, state: st });
+    if (r.status === 200 && r.j) { G.v = r.j.v; G.offline = false; return true; }
+    if (r.status === 409 && r.j) { G.v = r.j.v; G.st = r.j.state; drawMatch(); return false; }
+    throw new Error('bad status ' + r.status);
+  } catch (e) { G.offline = true; drawMatch(); return false; }
+}
+function startPolling() {
+  let failing = 0;
+  const tick = async () => {
+    if (!G || G.local) return;
+    try {
+      const r = await api('GET', null, `?room=${G.room}&since=${G.v}`);
+      if (r.status === 200 && r.j && r.j.v > G.v) {
+        G.v = r.j.v; const was = G.st; G.st = r.j.state;
+        if (was && was.phase === 'wait' && G.st.phase === 'play') { tone(true); say && S.settings.voice && say(`${G.st.players[1].name} joined.`); }
+        if (G.st.game === 'match' && G.screen !== 'match') showMatch(); else drawMatch();
+      } else if (r.status === 404) { G.gone = true; drawMatch(); }
+      failing = 0; if (G.offline) { G.offline = false; drawMatch(); }
+    } catch (e) { if (++failing > 2 && !G.offline) { G.offline = true; drawMatch(); } }
+  };
+  const id = setInterval(tick, 1000);
+  stops.push(() => clearInterval(id));
+  tick();
+}
+const myTurn = () => G.local || G.st.turn === G.seat;
+const pname = i => (G.st.players[i] && G.st.players[i].name) || `Player ${i + 1}`;
+
+function flip(i) {
+  const st = JSON.parse(JSON.stringify(G.st));
+  if (st.phase !== 'play' || G.busy) return;
+  if (st.matched[i] >= 0 || st.up.includes(i) || st.up.length >= 2) return;
+  if (!myTurn()) { G.note = `It’s ${pname(st.turn)}’s turn.`; drawMatch(); return; }
+  G.note = '';
+  blip('tick');
+  if (st.up.length === 0) { st.up = [i]; st.msg = ''; commit(st); return; }
+  const a = st.up[0];
+  st.up = [a, i]; st.tries++;
+  if (st.cards[a].k === st.cards[i].k) {
+    st.matched[a] = st.matched[i] = st.turn; st.up = []; st.scores[st.turn]++;
+    const c = st.cards[i], cap = c.t === 'p' ? (photoInfo({ file: c.f }).caption || '') : '';
+    st.msg = `match|${st.turn}|${cap}`;
+    if (st.matched.every(m => m >= 0)) st.phase = 'done';
+    commit(st);
+  } else {
+    st.msg = `miss|${st.turn}`;
+    commit(st);
+  }
+}
+function settleMiss() {
+  const st = G.st;
+  if (!st || st.phase !== 'play' || st.up.length !== 2) return;
+  const key = st.seq;
+  const mine = myTurn();
+  later(() => {
+    if (!G || G.st.seq !== key || G.st.up.length !== 2) return;
+    const n = JSON.parse(JSON.stringify(G.st));
+    n.up = []; n.turn = n.players[1] ? 1 - n.turn : 0; n.msg = `pass|${n.turn}`;
+    commit(n);
+  }, mine ? 1700 : 5000);
+}
+
+function showFamily() {
+  clearTimers(); G = null;
+  const saved = savedRoom();
+  const hasPhotos = PHOTOS.length > 0;
+  const opt = { mode: 'turns', size: 12, photos: hasPhotos };
+  const seg = (key, items) => {
+    const wrap = h('div', { class: 'seg', role: 'radiogroup' });
+    const draw = () => wrap.replaceChildren(...items.map(([v, label]) => h('button', {
+      type: 'button', role: 'radio', 'aria-checked': String(opt[key] === v), class: opt[key] === v ? 'on' : '', text: label,
+      onclick: () => { opt[key] = v; draw(); }
+    })));
+    draw(); return wrap;
+  };
+  const me = h('input', { type: 'text', id: 'pn1', maxlength: '16', value: S.settings.name || '', autocomplete: 'off', placeholder: 'Your name' });
+  const other = h('input', { type: 'text', id: 'pn2', maxlength: '16', value: '', autocomplete: 'off', placeholder: 'Other player' });
+  const err = h('p', { class: 'cue', role: 'status' });
+  const nm = (el, d) => (el.value || '').trim().slice(0, 16) || d;
+  const playHere = () => {
+    G = { local: true, st: freshMatch(opt, [{ name: nm(me, 'Player 1') }, { name: nm(other, 'Player 2') }]), seat: 0 };
+    showMatch();
+  };
+  const host = async () => {
+    err.textContent = 'Starting the game…';
+    const st = freshMatch(opt, [{ name: nm(me, 'Player 1') }, null]);
+    try {
+      const r = await api('POST', { create: true, state: st });
+      if (r.status !== 200 || !r.j || !r.j.room) throw 0;
+      G = { local: false, st, v: r.j.v, room: r.j.room, seat: 0 };
+      saveRoom(); showMatch(); startPolling();
+    } catch (e) { err.textContent = 'Couldn’t start an online game. Check that this iPad is online, then try again.'; }
+  };
+  const code = h('input', { type: 'text', id: 'code', maxlength: '4', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', class: 'codein', placeholder: 'CODE' });
+  code.addEventListener('input', () => { code.value = code.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+  const join = async (roomCode, seatHint) => {
+    const room = (roomCode || code.value).toUpperCase();
+    if (!/^[A-Z]{4}$/.test(room)) { err.textContent = 'Type the 4-letter code from the other player’s screen.'; return; }
+    err.textContent = 'Joining…';
+    try {
+      const r = await api('GET', null, `?room=${room}`);
+      if (r.status === 404) { err.textContent = `No game with the code ${room}. Check the letters and try again.`; return; }
+      if (r.status !== 200 || !r.j) throw 0;
+      G = { local: false, st: r.j.state, v: r.j.v, room, seat: seatHint != null ? seatHint : 1 };
+      if (seatHint == null && G.st.phase === 'wait') {
+        const n = JSON.parse(JSON.stringify(G.st));
+        n.players[1] = { name: nm(me, 'Player 2') }; n.phase = 'play'; n.msg = `joined|1`;
+        await commit(n);
+      }
+      saveRoom(); showMatch(); startPolling();
+    } catch (e) { err.textContent = 'Couldn’t reach the game. Check that this iPad is online, then try again.'; }
+  };
+  screen(
+    backBar('Photo Match'),
+    h('p', { text: 'Flip two cards at a time and find the pairs. Play on this iPad, or online with someone far away while you’re on a FaceTime call.' }),
+    saved ? h('div', { class: 'btnrow' }, h('button', { class: 'btn', type: 'button', text: `Rejoin game ${saved.room}`, onclick: () => join(saved.room, saved.seat) })) : null,
+    h('h2', { class: 'area', text: 'Your name' }),
+    h('div', { class: 'group' }, h('div', { class: 'field' }, h('label', { for: 'pn1', text: 'Name' }), me)),
+    h('h2', { class: 'area', text: 'How to play' }),
+    h('div', { class: 'group pad' },
+      seg('mode', [['turns', 'Take turns and keep score'], ['team', 'Team up, beat your best']]),
+      seg('size', [[8, '8 cards'], [12, '12 cards'], [16, '16 cards'], [20, '20 cards']]),
+      hasPhotos ? seg('photos', [[true, 'Family photos'], [false, 'Pictures']]) : h('p', { class: 'muted', text: 'Add family photos to play with your own pictures.' })),
+    h('h2', { class: 'area', text: 'Play on this iPad' }),
+    h('div', { class: 'group pad' },
+      h('div', { class: 'field bare' }, h('label', { for: 'pn2', text: 'Other player' }), other),
+      h('button', { class: 'btn', type: 'button', text: 'Play here', onclick: playHere })),
+    h('h2', { class: 'area', text: 'Play online' }),
+    h('div', { class: 'group pad' },
+      h('button', { class: 'btn', type: 'button', text: 'Start an online game', onclick: host }),
+      h('p', { class: 'muted', text: 'Or join someone else’s game with their code:' }),
+      h('div', { class: 'joinrow' }, code, h('button', { class: 'btn quiet', type: 'button', text: 'Join', onclick: () => join() }))),
+    err
+  );
+}
+
+function gridFor(n, W, H) {
+  let full = null, any = null;
+  for (let c = 2; c <= 10; c++) {
+    const r = Math.ceil(n / c), s = Math.min((W - 10 * (c - 1)) / c, (H - 10 * (r - 1)) / r);
+    if (r * c - n >= c) continue;
+    if (!any || s > any.s) any = { c, r, s };
+    if (n % c === 0 && (!full || s > full.s)) full = { c, r, s };
+  }
+  return full && full.s * 1.2 >= any.s ? full : any;
+}
+function showMatch() {
+  clearTimers(); if (G && !G.local) startPolling();
+  G.screen = 'match'; G.els = null;
+  const status = h('p', { class: 'mstatus', role: 'status' });
+  const board = h('div', { class: 'mboard' });
+  const scores = h('div', { class: 'mscores' });
+  const foot = h('div', { class: 'btnrow' });
+  screen(
+    h('header', { class: 'top' },
+      h('button', { class: 'btn quiet small', type: 'button', text: 'Leave', onclick: () => { if (!G.local && G.st.phase === 'done') forgetRoom(); showHome(); } }),
+      h('h2', { text: G.local ? 'Photo Match' : `Photo Match · code ${G.room}` }), h('span')),
+    scores, status, board, foot);
+  G.els = { status, board, scores, foot };
+  drawMatch();
+}
+function drawMatch() {
+  if (!G || !G.els || G.screen !== 'match') return;
+  const { status, board, scores, foot } = G.els, st = G.st;
+  if (st.phase === 'wait') {
+    board.replaceChildren(h('div', { class: 'waitbox' },
+      h('p', { text: 'Tell the other player this code:' }),
+      h('p', { class: 'bigcode', text: G.room }),
+      h('p', { class: 'muted', text: 'They open Brain Gym, tap Play with family, and type it under Play online. The game starts when they join.' })));
+    scores.replaceChildren(); status.textContent = G.offline ? 'Can’t reach the game right now. Still trying…' : 'Waiting for the other player…';
+    foot.replaceChildren();
+    return;
+  }
+  const two = !!st.players[1];
+  scores.replaceChildren(...[...st.players.map((p, i) => p ? h('div', { class: `chip ${P_COLORS[i]}${st.turn === i && st.phase === 'play' ? ' now' : ''}` },
+    h('span', { text: p.name + (!G.local && i === G.seat ? ' (you)' : '') }),
+    st.mode === 'turns' ? h('b', { text: String(st.scores[i]) }) : null) : null),
+    st.mode === 'team' ? h('div', { class: 'chip team' }, h('span', { text: 'Tries' }), h('b', { text: String(st.tries) })) : null].filter(Boolean));
+  // board
+  if (!board.children.length || board.dataset.n !== String(st.cards.length) || board.dataset.deal !== st.cards.map(c => c.k).join('')) {
+    const W = board.clientWidth || app.clientWidth || 700;
+    const top = board.getBoundingClientRect().top || 220;
+    const H = Math.max(260, (window.innerHeight || 800) - top - 40);
+    const g = gridFor(st.cards.length, W, H);
+    board.style.gridTemplateColumns = `repeat(${g.c}, ${Math.floor(g.s)}px)`;
+    board.dataset.n = String(st.cards.length); board.dataset.deal = st.cards.map(c => c.k).join('');
+    board.replaceChildren(...st.cards.map((c, i) => {
+      const face = c.t === 'p'
+        ? h('img', { src: 'photos/' + encodeURIComponent(c.f), alt: '', draggable: 'false' })
+        : h('span', { class: 'emo', text: c.e, style: `font-size:${Math.floor(g.s * 0.55)}px` });
+      return h('button', { class: 'mcard', type: 'button', 'aria-label': `Card ${i + 1}`, style: `width:${Math.floor(g.s)}px;height:${Math.floor(g.s)}px`, onclick: () => flip(i) },
+        h('span', { class: 'inner' }, h('span', { class: 'back' }), h('span', { class: 'front' }, face), h('i', { class: 'owner' })));
+    }));
+  }
+  [...board.children].forEach((el, i) => {
+    const m = st.matched[i];
+    el.classList.toggle('up', m >= 0 || st.up.includes(i));
+    el.classList.toggle('got', m >= 0);
+    el.classList.remove('p0', 'p1'); if (m >= 0 && st.mode === 'turns' && two) el.classList.add(P_COLORS[m]);
+    el.disabled = m >= 0;
+  });
+  // status
+  const [kind, who, cap] = (st.msg || '').split('|');
+  const w = who != null && who !== '' ? pname(+who) : '';
+  let line = '';
+  if (st.phase === 'done') {
+    const pairs = st.cards.length / 2;
+    if (st.mode === 'team' || !two) {
+      const key = 'm' + st.cards.length;
+      S.matchBest = S.matchBest || {};
+      const best = S.matchBest[key];
+      if (G.doneSeq !== st.seq) { G.doneSeq = st.seq; G.newBest = !best || st.tries < best; if (G.newBest) { S.matchBest[key] = st.tries; save(); } tone(true); }
+      line = `All ${pairs} pairs in ${st.tries} tries.` + (G.newBest ? ' That’s your best yet!' : ` Your best is ${best} tries.`);
+    } else {
+      const [a, b] = st.scores;
+      line = a === b ? `It’s a tie, ${a} to ${b}!` : `${pname(a > b ? 0 : 1)} wins, ${Math.max(a, b)} to ${Math.min(a, b)}!`;
+      if (G.doneSeq !== st.seq) { G.doneSeq = st.seq; tone(true); }
+    }
+    foot.replaceChildren(
+      h('button', { class: 'btn big', type: 'button', text: 'Play again', onclick: () => {
+        const n = freshMatch({ mode: st.mode, size: st.cards.length, photos: st.photos }, st.players);
+        n.seq = st.seq; n.turn = two ? 1 - (st.firstTurn || 0) : 0; n.firstTurn = n.turn; commit(n);
+      } }),
+      h('button', { class: 'btn quiet', type: 'button', text: 'Leave', onclick: () => { forgetRoom(); showHome(); } }));
+  } else {
+    foot.replaceChildren();
+    if (kind === 'match') line = `Match! ${cap ? cap + '. ' : ''}${w} goes again.`;
+    else if (kind === 'miss') line = 'Not a match. Remember where those were.';
+    else if (kind === 'pass' || kind === 'joined' || !kind) line = two ? (myTurn() && !G.local ? 'Your turn. Flip two cards.' : `${pname(st.turn)}’s turn. Flip two cards.`) : 'Flip two cards.';
+    if (kind === 'match' && G.lastMatchSeq !== st.seq) { G.lastMatchSeq = st.seq; tone(true); }
+    if (G.note) line = G.note;
+  }
+  if (G.offline) line = 'Can’t reach the game right now. Still trying…';
+  if (G.gone) line = 'This game has ended. Leave and start a new one.';
+  status.textContent = line;
+  if (st.up.length === 2 && st.phase === 'play') settleMiss();
 }
 
 /*TEST*/
