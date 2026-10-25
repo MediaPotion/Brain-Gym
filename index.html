@@ -297,6 +297,20 @@ div.cell{ cursor:default; }
 @media (prefers-reduced-motion: reduce){ .mcard .inner{ transition:none; } }
 .waitbox{ grid-column:1 / -1; padding:1.5rem; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; max-width:34rem; }
 .bigcode{ font-size:4rem; font-weight:700; letter-spacing:0.3em; margin:0.2rem 0; }
+.bisect{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; cursor:crosshair; }
+.bsvg{ display:block; }
+.bline{ stroke:var(--ink); stroke-linecap:round; }
+.bmid{ stroke:var(--good); stroke-width:5; stroke-linecap:round; }
+.btap{ fill:var(--mark); stroke:var(--ink); stroke-width:3; }
+.mpair{ align-items:center; }
+.mpair > div{ flex:1 1 12rem; max-width:20rem; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; }
+.mshape{ display:block; width:100%; height:auto; }
+.mcell{ fill:var(--primary); }
+.gauge{ padding:1.2rem 1rem 0.6rem; }
+.gauge p{ margin:0.8rem 0 0.2rem; }
+.gline{ position:relative; height:10px; background:var(--cell); border-radius:5px; margin:1rem 0.6rem 0; }
+.gmid{ position:absolute; left:50%; top:-12px; bottom:-12px; width:4px; margin-left:-2px; background:var(--good); border-radius:2px; }
+.gdot{ position:absolute; top:50%; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; background:var(--mark); border:3px solid var(--ink); }
 </style>
 </head>
 <body>
@@ -642,6 +656,59 @@ const EX = [
     }
   },
   {
+    id: 'bisect', area: 'Looking left and scanning', name: 'Find the middle', what: 'Tap the exact center of each line', trials: 1, max: 5,
+    how: lv => 'Tap the exact middle of each line. Look at both ends first.',
+    run(lv, stage, finish) {
+      const N = 8;
+      const cue = h('p', { class: 'cue track-status', role: 'status', text: `Line 1 of ${N}. Tap the middle.` });
+      const board = h('div', { class: 'bisect' });
+      stage.append(cue, board);
+      const W = board.clientWidth || 640;
+      const top = board.getBoundingClientRect().top || 200;
+      const H = Math.round(Math.max(300, Math.min(W * 0.7, (window.innerHeight || 800) - top - 40)));
+      board.style.height = H + 'px';
+      const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'bsvg', 'aria-hidden': 'true' });
+      board.append(svg);
+      const c = [0, { f: 0.45, w: 12, caps: 1 }, { f: 0.55, w: 10, caps: 1 }, { f: 0.7, w: 7, caps: 1 }, { f: 0.8, w: 6, caps: 0 }, { f: 0.9, w: 4, caps: 0 }][lv];
+      let i = 0, waiting = false, line = null, sum = 0, sumDev = 0, sumAbs = 0;
+      const devs = [];
+      function next() {
+        svg.replaceChildren();
+        if (i >= N) return done();
+        const len = Math.min(W - 40, W * c.f * (0.8 + Math.random() * 0.4));
+        const slot = i % 3, room = W - 40 - len;
+        const x0 = 20 + (slot === 0 ? Math.random() * 0.3 : slot === 1 ? 0.35 + Math.random() * 0.3 : 0.7 + Math.random() * 0.3) * room;
+        const y = 50 + Math.random() * (H - 100);
+        line = { x0, x1: x0 + len, y, len };
+        svg.append(s('line', { x1: x0, y1: y, x2: x0 + len, y2: y, class: 'bline', 'stroke-width': c.w }));
+        if (c.caps) [x0, x0 + len].forEach(x => svg.append(s('line', { x1: x, y1: y - 18, x2: x, y2: y + 18, class: 'bline', 'stroke-width': 4 })));
+        cue.textContent = `Line ${i + 1} of ${N}. Tap the middle.`;
+        waiting = true;
+      }
+      board.addEventListener('pointerdown', e => {
+        if (!waiting) return;
+        e.preventDefault(); waiting = false;
+        const b = board.getBoundingClientRect(), x = e.clientX - b.left;
+        const mid = (line.x0 + line.x1) / 2, dev = (x - mid) / line.len * 100;
+        devs.push(dev); sumDev += dev; sumAbs += Math.abs(dev); sum += clip(1 - Math.abs(dev) / 20);
+        svg.append(
+          s('line', { x1: mid, y1: line.y - 34, x2: mid, y2: line.y + 34, class: 'bmid' }),
+          s('circle', { cx: x, cy: line.y, r: 11, class: 'btap' }));
+        const a = Math.abs(dev);
+        cue.textContent = a < 2 ? '✓ Right in the middle.' : a < 6 ? `Close. A little to the ${dev > 0 ? 'right' : 'left'}.` : `The middle is the green mark. You tapped to the ${dev > 0 ? 'right' : 'left'}.`;
+        blip(a < 6 ? 'on' : 'tick');
+        i++;
+        later(next, 1400);
+      });
+      function done() {
+        const avg = sumDev / N, sc = sum / N;
+        const side = Math.abs(avg) < 1.5 ? 'right in the middle on average' : `${Math.abs(avg).toFixed(1)}% of the line to the ${avg > 0 ? 'right' : 'left'} of the middle on average`;
+        finish(sc, `Your taps landed ${side}.`, { bi: [Math.round(sumDev * 10), N] });
+      }
+      next();
+    }
+  },
+  {
     id: 'trail', area: 'Attention', name: 'Connect in order', what: 'Keep your place and switch back and forth', trials: 2, max: 5,
     how: lv => lv < 4 ? 'Tap the numbers in order: 1, 2, 3, and so on.' : 'Switch between numbers and letters: 1, A, 2, B, 3, C, and so on.',
     run(lv, stage, finish) {
@@ -756,6 +823,47 @@ const EX = [
         finish(clip(1 - (missed + extra) / c.k), msg, X);
       });
       stage.append(h('div', { class: 'pair' }, h('div', null, h('h3', { text: 'Pattern' }), a.grid), h('div', null, h('h3', { text: 'Your copy' }), b.grid)), btn);
+    }
+  },
+  {
+    id: 'mirror', area: 'Space and shapes', name: 'Same or mirror', what: 'Turn shapes in your mind', trials: 8, max: 5,
+    how: lv => 'The shape on the right has been turned. Is it the same shape, or a mirror image of the left one?',
+    run(lv, stage, finish) {
+      const c = [0, { n: 4, ang: [90, 270] }, { n: 5, ang: [90, 180, 270] }, { n: 5, ang: [90, 180, 270], both: 1 }, { n: 6, ang: [90, 180, 270], both: 1 }, { n: 7, any: 1, both: 1 }][lv];
+      const norm = cs => { const mx = Math.min(...cs.map(p => p[0])), my = Math.min(...cs.map(p => p[1])); return cs.map(([x, y]) => [x - mx, y - my]).sort((a, b) => a[0] - b[0] || a[1] - b[1]); };
+      const key = cs => norm(cs).map(p => p.join(',')).join(';');
+      const rot = cs => cs.map(([x, y]) => [y, -x]);
+      const flipX = cs => cs.map(([x, y]) => [-x, y]);
+      let cells;
+      for (let tries = 0; tries < 200; tries++) {
+        const set = new Map([['0,0', [0, 0]]]);
+        while (set.size < c.n) {
+          const [x, y] = pick([...set.values()]), [dx, dy] = pick([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+          set.set(`${x + dx},${y + dy}`, [x + dx, y + dy]);
+        }
+        const cs = [...set.values()], rk = new Set(); let r = cs;
+        for (let k = 0; k < 4; k++) { rk.add(key(r)); r = rot(r); }
+        if (!rk.has(key(flipX(cs)))) { cells = norm(cs); break; }
+      }
+      if (!cells) cells = norm([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 0]].slice(0, Math.max(4, c.n)));
+      const isMirror = Math.random() < 0.5;
+      const angle = c.any ? 15 * (2 + rnd(21)) : pick(c.ang);
+      const refAngle = c.both ? pick([0, 90, 180, 270]) : 0;
+      const draw = (cs, deg) => {
+        const g = 30, w = Math.max(...cs.map(p => p[0])) + 1, hh = Math.max(...cs.map(p => p[1])) + 1;
+        const svg = s('svg', { viewBox: '0 0 240 240', class: 'mshape', role: 'img', 'aria-label': 'Shape' });
+        const grp = s('g', { transform: `rotate(${deg} 120 120) translate(${120 - w * g / 2} ${120 - hh * g / 2})` });
+        cs.forEach(([x, y]) => grp.append(s('rect', { x: x * g + 1.5, y: y * g + 1.5, width: g - 3, height: g - 3, rx: 4, class: 'mcell' })));
+        svg.append(grp); return svg;
+      };
+      const second = isMirror ? norm(flipX(cells)) : cells;
+      const same = 'Same shape', mir = 'Mirror image', right = isMirror ? mir : same;
+      stage.append(
+        h('div', { class: 'pair mpair' }, h('div', null, draw(cells, refAngle)), h('div', null, draw(second, refAngle + angle))),
+        choices([same, mir], right, ok => finish(ok ? 1 : 0,
+          isMirror ? (ok ? 'Right, it’s a mirror image. No amount of turning makes them match.' : 'It was a mirror image. You’d have to flip it over to make it match.')
+                   : (ok ? 'Right, it’s the same shape, just turned.' : 'It was the same shape, just turned around.')))
+      );
     }
   },
   {
@@ -1247,6 +1355,19 @@ function showProgress() {
     sides = [h('h2', { class: 'area', text: `Find them all: found without a hint, last ${plural(scans.length, 'round')}` }),
       h('div', { class: 'group' }, row('Left side', L), row('Right side', R))];
   }
+  const bis = S.history.filter(x => x.id === 'bisect' && x.x && x.x.bi && x.x.bi[1]);
+  let middle = null;
+  if (bis.length) {
+    const avgOf = list => list.reduce((a, x) => a + x.x.bi[0], 0) / 10 / list.reduce((a, x) => a + x.x.bi[1], 0);
+    const now = avgOf(bis.slice(-5)), first = avgOf(bis.slice(0, Math.min(5, bis.length)));
+    const word = v => Math.abs(v) < 1.5 ? 'right on the middle' : `${Math.abs(v).toFixed(1)}% ${v > 0 ? 'right' : 'left'} of the middle`;
+    const pos = v => 50 + Math.max(-20, Math.min(20, v)) * 2.5;
+    middle = [h('h2', { class: 'area', text: 'Find the middle: where your taps land, last 5 rounds' }),
+      h('div', { class: 'group gauge' },
+        h('div', { class: 'gline' }, h('i', { class: 'gmid' }), h('b', { class: 'gdot', style: `left:${pos(now)}%` })),
+        h('p', { text: `On average your taps land ${word(now)}.` + (bis.length > 5 ? ` When you started: ${word(first)}.` : '') }),
+        h('p', { class: 'muted', text: 'Taps to the right of the middle mean the left side of the line is being missed. Closer to the center is better.' }))];
+  }
   const rows = EX.map(e => {
     const list = S.history.filter(x => x.id === e.id).slice(-12);
     return h('li', null,
@@ -1254,7 +1375,7 @@ function showProgress() {
       list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
       h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
   });
-  screen(backBar('Progress'), weekDots(), sides,
+  screen(backBar('Progress'), weekDots(), middle, sides,
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
@@ -1297,7 +1418,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.6, October 25, 2026' })
+    h('p', { class: 'note', text: 'Version 1.7, October 25, 2026' })
   );
 }
 
