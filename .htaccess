@@ -1,0 +1,5 @@
+# Keep project docs and scripts off the public site.
+<FilesMatch "\.(md|sh)$|^\.git">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 ^/braingym/scripts/
