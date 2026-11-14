@@ -293,6 +293,10 @@ div.cell{ cursor:default; }
 .wbar i{ display:block; height:100%; background:var(--primary); }
 .reporttext{ width:100%; font:inherit; font-size:0.95rem; padding:0.6rem; border:2px solid var(--line); border-radius:0.6rem; background:var(--surface); color:var(--ink); }
 .field input[type="time"]{ font:inherit; font-size:1.2rem; min-height:3rem; padding:0.3rem 0.7rem; border:2px solid var(--line); border-radius:0.6rem; background:var(--surface); color:var(--ink); }
+.life{ padding:1rem 1rem 1.1rem; }
+.lifetask{ font-size:1.25rem; font-weight:700; margin:0; max-width:40rem; }
+.life .btnrow{ margin-top:1rem; }
+.life .plandone{ margin:0.8rem 0 0; }
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -1680,11 +1684,71 @@ function showHome() {
         h('button', { class: 'btn quiet small', type: 'button', text: 'Settings', onclick: showSettings }))),
     h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
     planCard(),
+    lifeCard(),
     homePhoto(),
     weekDots(),
     h('h2', { class: 'area', text: 'Any exercise, any time' }),
     groups
   );
+}
+/* ---------- real-life practice ----------
+   One small task a day away from the screen, using the same skills (looking left, reading whole lines).
+   Kept safe on purpose: no stove, no driving, no ladders, nothing that needs walking fast. Done tasks go in S.life. */
+const LIFE = [
+  'Find five red things in this room. Start at the left wall and work to the right.',
+  'Read the first word of every line on one piece of today’s mail.',
+  'Open the fridge. Name everything on the top shelf, from left to right.',
+  'Look through one kitchen cabinet shelf from left to right and name each thing.',
+  'Before you walk through a doorway, stop and turn your head to look all the way left.',
+  'Read the headline and the first line of a newspaper or magazine story out loud.',
+  'Find the clock in each room you are in today and read the time on each one.',
+  'Read a food label and find the first ingredient on the list.',
+  'Look at a family photo. Name everyone in it, starting with the person on the far left.',
+  'Sort the coins from a pocket or jar into piles, starting on the left side of the table.',
+  'Count the windows in this room, starting on your left.',
+  'Read a whole text message from family out loud, every word.',
+  'Find your keys, your glasses and your phone. Say where each one is.',
+  'Look out a window and name three things you see on the left side.',
+  'Fold a few towels. Line up the left edges first.',
+  'Read the titles on four book spines on a shelf, from left to right.',
+  'Write a short note to someone. Start every line at the left edge of the paper.',
+  'Name the things on the bathroom counter from left to right.',
+  'Look at a calendar. Find today, then find the first day of the month.',
+  'At your next meal, look at the left side of your plate before you finish.',
+  'Set out the things you need for tomorrow morning in a row, left to right.',
+  'Read one page of a book or magazine with your finger on the left margin, line by line.',
+  'Watch a minute of TV and say what is in the left corner of the screen.',
+  'Water a plant or wipe a table, starting on the left side and working right.'
+];
+const lifeDone = day => (S.life || []).some(x => new Date(x.t).toDateString() === day);
+function lifeToday() {
+  const day = todayKey();
+  if (!S.lifeToday || S.lifeToday.day !== day || !LIFE[S.lifeToday.i]) {
+    const recent = new Set((S.life || []).slice(-12).map(x => x.i));
+    const start = Math.floor(Date.now() / DAY) % LIFE.length;
+    let i = start; for (let k = 0; k < LIFE.length && recent.has(i); k++) i = (start + k + 1) % LIFE.length;
+    S.lifeToday = { day, i }; save();
+  }
+  return S.lifeToday;
+}
+function lifeCard() {
+  lifeToday();
+  const body = h('div', { class: 'life' });
+  const draw = () => {
+    const T = LIFE[S.lifeToday.i], D = lifeDone(S.lifeToday.day);
+    body.replaceChildren(
+      h('div', { class: 'instr-row' }, h('p', { class: 'lifetask', text: T }), listenBtn(T)),
+      D ? h('p', { class: 'plandone', text: '✓ Done today. Nice work.' })
+        : h('div', { class: 'btnrow' },
+          h('button', { class: 'btn', type: 'button', text: 'I did it', onclick: () => {
+            S.life = (S.life || []).concat([{ t: Date.now(), i: S.lifeToday.i }]).slice(-300); save(); tone(true); draw(); setTimeout(syncReport, 0);
+          } }),
+          h('button', { class: 'btn quiet', type: 'button', text: 'A different one', onclick: () => {
+            S.lifeToday.i = (S.lifeToday.i + 1) % LIFE.length; save(); draw();
+          } })));
+  };
+  draw();
+  return [h('h2', { class: 'area', text: 'Try this today, away from the iPad' }), h('div', { class: 'group' }, body)];
 }
 function planCard() {
   const P = todayPlan(), { queue, part } = planPart(P), left = planLeft(P);
@@ -1738,14 +1802,15 @@ function weekFacts() {
     return { e, n: doneSince(e.id, since), goal: targetOf(e.id), level: levelOf(e.id), last: last ? pct(last.sc) : '' };
   });
   const goalSum = rows.reduce((a, r) => a + r.goal, 0), metSum = rows.reduce((a, r) => a + Math.min(r.n, r.goal), 0);
-  return { days: days.size, goalDays: S.settings.goalDays || 6, full, mins: Math.round(secs / 60), rounds: recent.length, rows, goalSum, metSum, today };
+  const life = (S.life || []).filter(x => x.t >= since).length;
+  return { life, days: days.size, goalDays: S.settings.goalDays || 6, full, mins: Math.round(secs / 60), rounds: recent.length, rows, goalSum, metSum, today };
 }
 function calendar() {
   const cal = h('div', { class: 'cal' });
   const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 27);
   for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); cal.append(h('b', { text: 'SMTWTFS'[d.getDay()] })); }
   const plans = {}; (S.plans || []).forEach(p => plans[p.day] = p);
-  const played = {}; S.history.forEach(x => { const k = dayKey(x.t); (played[k] = played[k] || new Set()).add(x.id); });
+  const played = {}; S.history.concat((S.life || []).map(x => ({ t: x.t, id: 'life' }))).forEach(x => { const k = dayKey(x.t); (played[k] = played[k] || new Set()).add(x.id); });
   for (let i = 0; i < 28; i++) {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const k = d.toDateString(), p = plans[k], got = played[k];
@@ -1762,7 +1827,7 @@ function calendar() {
 function reportText(F) {
   const lines = [`Brain Gym report, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
     `Last 7 days: practiced ${F.days} of 7 days (goal ${F.goalDays}). Whole plan done on ${plural(F.full, 'day')}. ${plural(F.rounds, 'exercise')}` + (F.mins ? `, about ${plural(F.mins, 'minute')}.` : '.'),
-    `Weekly goals met: ${F.metSum} of ${F.goalSum}.`, '', 'This week (done / goal, level, last score):'];
+    `Weekly goals met: ${F.metSum} of ${F.goalSum}. Real-life tasks done: ${F.life} of 7.`, '', 'This week (done / goal, level, last score):'];
   F.rows.forEach(r => lines.push(`- ${r.e.name}: ${r.n} / ${r.goal}, level ${r.level}` + (r.last ? `, ${r.last}` : '')));
   const sk = S.history.filter(x => x.id === 'seek' && x.x && x.x.tL && x.x.tL[1] && x.x.tR && x.x.tR[1]).slice(-5);
   if (sk.length) {
@@ -1796,7 +1861,8 @@ function reportTop() {
       stat(`${F.days} of 7`, `days practiced. Goal: ${F.goalDays}`),
       stat(`${F.full}`, F.full === 1 ? 'day with the whole plan done' : 'days with the whole plan done'),
       stat(F.mins ? `${F.mins}` : `${F.rounds}`, F.mins ? (F.mins === 1 ? 'minute of practice' : 'minutes of practice') : (F.rounds === 1 ? 'exercise done' : 'exercises done')),
-      stat(`${F.metSum} of ${F.goalSum}`, 'weekly goals met')),
+      stat(`${F.metSum} of ${F.goalSum}`, 'weekly goals met'),
+      stat(`${F.life} of 7`, 'days with a real-life task done')),
     h('h2', { class: 'area', text: 'Last 4 weeks' }),
     h('div', { class: 'group' }, calendar()),
     h('h2', { class: 'area', text: 'Each exercise this week: times done and the weekly goal' }),
@@ -2252,7 +2318,7 @@ function drawMatch() {
 
 /* ---------- feedback button (always on screen) ----------
    Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
-const APP_VERSION = 'Version 1.13, November 14, 2026';
+const APP_VERSION = 'Version 1.14, November 14, 2026';
 const OUTBOX = 'braingym.outbox';
 const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
 function outbox(list) {
@@ -2344,7 +2410,7 @@ async function syncReport(force) {
   const key = reportKey(); if (!key) return;
   const since = Date.now() - 35 * DAY;
   const data = { v: 1, version: APP_VERSION, sent: Date.now(),
-    history: S.history.filter(x => x.t >= since), plans: (S.plans || []).slice(-35), plan: S.plan || null,
+    history: S.history.filter(x => x.t >= since), life: (S.life || []).filter(x => x.t >= since), plans: (S.plans || []).slice(-35), plan: S.plan || null,
     targets: S.targets || {}, levels: S.levels, settings: { perDay: S.settings.perDay, parts: S.settings.parts, goalDays: S.settings.goalDays } };
   try {
     const r = await fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ report: { key, data } }) });
@@ -2357,7 +2423,7 @@ async function showSharedReport() {
     const r = await fetch('api.php?report=' + VIEW, { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
     const j = await r.json(), d = j.data || {};
-    S = Object.assign(blank(), { history: Array.isArray(d.history) ? d.history : [], plans: d.plans || [], plan: d.plan || null, targets: d.targets || {}, levels: d.levels || {} });
+    S = Object.assign(blank(), { life: Array.isArray(d.life) ? d.life : [], history: Array.isArray(d.history) ? d.history : [], plans: d.plans || [], plan: d.plan || null, targets: d.targets || {}, levels: d.levels || {} });
     S.settings = Object.assign(blank().settings, d.settings || {});
     VIEW_SENT = d.sent || (j.t ? j.t * 1000 : 0);
     showProgress();

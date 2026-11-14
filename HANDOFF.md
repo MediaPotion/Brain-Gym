@@ -1,9 +1,10 @@
 # Brain Gym handoff
 
-**Status:** v1.13 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
+**Status:** v1.14 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
 
 ## Built but not confirmed on the real site or iPad
-- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.13`.
+- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.14`.
+- **Real-life tasks** (v1.14): ask Nick whether the 24 tasks fit his dad's home and abilities (all are seated or standing still, no stove or walking tasks).
 - **Family report link** (v1.13): on the iPad, Settings > Family report > Share the family link, send it to Nick, then open it on Nick's phone. It needs `api.php` running on Hostinger (same check as Photo Match).
 - **Daily reminder** (v1.12): on the iPad, Settings > Daily reminder > Add reminder to Calendar should show the Calendar "Add All" sheet, including when Brain Gym is opened from the Home Screen icon. Untested on a real device.
 - **Daily plan and My report** (v1.11): does the plan length (7 a day) and the weekly goals suit him? Both are in Settings. Try Share this report on the iPad: it should open the share sheet so he can send it to Nick by Messages.
@@ -19,7 +20,7 @@
 - **Sounds on the iPad.** iOS needs a first tap to unlock audio, which is handled in code but untested on a device.
 
 ## Next
-1. Nick to confirm v1.13 is live, get the family report link from the iPad, set up the feedback token, and the `api.php` check passes.
+1. Nick to confirm v1.14 is live, get the family report link from the iPad, set up the feedback token, and the `api.php` check passes.
 2. Add family photos. Nick sends them, Claude resizes them to ~1600px JPEG, adds captions (who + roughly when), and updates `list.json`.
 3. Test Photo Match online: Nick plus another device, then Dad with his grandkid over FaceTime.
 4. Hemianopia work (see ROADMAP.md "Hemianopia"): get his visual-field printout, then quick-glance practice (sound-cued search is built).

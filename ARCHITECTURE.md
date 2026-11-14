@@ -52,6 +52,10 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - Clients poll every second. Turn-based, so lag doesn't matter. Only the player whose turn it is can flip.
 - Storage is `rooms/` (falls back to the system temp folder if it can't write there).
 
+## Real-life practice (v1.14)
+- `LIFE`: 24 short, safe tasks around the house that use the same skills (look left first, read whole lines). Home shows one a day (`lifeCard`, `S.lifeToday`), skipping the last 12 done. "A different one" moves to the next.
+- "I did it" adds `{t, i}` to `S.life` (300 kept). The report counts it (tile, calendar "some practice", share text) and it syncs to the family report.
+
 ## Family report link (v1.13)
 - The iPad makes a random key once (`braingym.reportkey`). After each exercise (and every 6 hours on open) `syncReport()` posts the last 5 weeks of history, plans, targets, levels and plan settings to api.php, which saves `rooms/reports/<key>.json`. No name is sent.
 - `index.html?report=<key>` is viewer mode (`VIEW`): loads that data into `S`, never saves, no Feedback button, and shows My report with a Refresh button.
