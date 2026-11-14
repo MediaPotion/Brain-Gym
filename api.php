@@ -7,6 +7,8 @@
 //   Saves the note to rooms/feedback-pending.jsonl, then commits every pending note to ROADMAP.md on GitHub.
 //   Needs a GitHub token in braingym-secret.php two folders up (outside public_html, never in this public repo):
 //   <?php return ['github_token' => 'github_pat_...'];
+// POST api.php  {"report":{"key":"<32 hex>","data":{...}}}  -> {"ok":true}   (the iPad's latest progress, for the family report link)
+// GET  api.php?report=<32 hex>  -> {"t":unix,"data":{...}} or 404
 // GET  api.php?reminder=1&d=YYYYMMDD&t=HH:MM[&t2=HH:MM]  -> a calendar file (.ics) with a daily Brain Gym reminder
 //   (two events when t2 is given). The iPad offers to add it to Calendar.
 
@@ -14,6 +16,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 const MAX_BYTES = 40000;
+const MAX_REPORT_BYTES = 300000;
 const MAX_AGE = 86400; // rooms are deleted after a day
 const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 
@@ -183,8 +186,22 @@ function reminder() {
   exit;
 }
 
+/* ---------- family report (latest progress from the iPad) ---------- */
+function report_path($key) {
+  if (!is_string($key) || !preg_match('/^[a-f0-9]{32}$/', $key)) fail(400, 'bad key');
+  $d = room_dir() . '/reports';
+  if (!is_dir($d)) @mkdir($d, 0755, true);
+  return $d . '/' . $key . '.json';
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET' && isset($_GET['reminder'])) reminder();
+if ($method === 'GET' && isset($_GET['report'])) {
+  $raw = @file_get_contents(report_path($_GET['report']));
+  if ($raw === false) fail(404, 'no report yet');
+  echo $raw;
+  exit;
+}
 
 if ($method === 'GET') {
   $path = room_path($_GET['room'] ?? '');
@@ -198,9 +215,18 @@ if ($method === 'GET') {
 
 if ($method !== 'POST') fail(405, 'method not allowed');
 
-$raw = file_get_contents('php://input', false, null, 0, MAX_BYTES + 1);
-if ($raw === false || strlen($raw) > MAX_BYTES) fail(413, 'too large');
+$raw = file_get_contents('php://input', false, null, 0, MAX_REPORT_BYTES + 1);
+if ($raw === false || strlen($raw) > MAX_REPORT_BYTES) fail(413, 'too large');
 $in = json_decode($raw, true);
+if (is_array($in) && isset($in['report'])) {
+  $r = $in['report'];
+  if (!is_array($r) || !isset($r['data']) || !is_array($r['data'])) fail(400, 'bad request');
+  $path = report_path($r['key'] ?? '');
+  if (@file_put_contents($path, json_encode(['t' => time(), 'data' => $r['data']]), LOCK_EX) === false) fail(500, 'storage unavailable');
+  echo json_encode(['ok' => true]);
+  exit;
+}
+if (strlen($raw) > MAX_BYTES) fail(413, 'too large');
 if (is_array($in) && isset($in['feedback'])) handle_feedback($in);
 if (!is_array($in) || !isset($in['state']) || !is_array($in['state'])) fail(400, 'bad request');
 

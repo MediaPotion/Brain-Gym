@@ -19,7 +19,7 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 ## Next to build
 - **Personal bests** on every exercise ("New best: 88%, up from 81%").
 - **Read the face:** pick the feeling (happy, worried, annoyed, joking), later using family photos. Targets right-brain emotion reading.
-- **Remote progress for Nick:** scores are iPad-only today. v1.11 has Share this report; next step is syncing `reportText()` to a private page through `api.php`.
+- Built: remote progress for Nick (family report link, v1.13).
 - **Notes from family:** Nick types a message that shows when Dad opens the app.
 - **Finish line:** end a workout with a voice message, a favorite song, or a weekly recap.
 

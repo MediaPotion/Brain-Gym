@@ -2,7 +2,8 @@
 
 Decision log, newest first. One entry per session. Grep by date; don't read it whole.
 
-## 2026-11-14 (v1.8–1.12)
+## 2026-11-14 (v1.8–1.13)
+- Family report link (v1.13): the iPad syncs its data, and the same report code renders it read-only for Nick. Chosen over emailing or committing reports, so health data stays off the public repo. Access works by unguessable link, like a shared photo album.
 - Daily reminder (v1.12): a calendar file from api.php rather than web push. It works without a push server, uses the iPad's own reliable Calendar alerts, and needs no permission prompts.
 - Daily plan + My report (v1.11), Nick's ask: a regimen that schedules each exercise enough and tracks use. Each exercise has a weekly goal; each day's plan is the 7 furthest behind over the last 7 days. Vision exercises default to 5 a week so they come up most days, which replaced the idea of a separate vision section. Optional two parts a day. Report: days practiced, whole-plan days, minutes, goals met, 4-week calendar, per-exercise counts, share sheet.
 - Feedback button (v1.10): always on screen, top right. Quick-tap tags + optional note. Nick chose to have notes go straight into ROADMAP.md on the public repo (told it's public). The server commits via the GitHub API with a token kept outside the repo; notes queue on the server and on the iPad if anything fails. Installed PHP via Homebrew on Nick's Mac for testing.

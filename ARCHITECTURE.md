@@ -52,6 +52,12 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - Clients poll every second. Turn-based, so lag doesn't matter. Only the player whose turn it is can flip.
 - Storage is `rooms/` (falls back to the system temp folder if it can't write there).
 
+## Family report link (v1.13)
+- The iPad makes a random key once (`braingym.reportkey`). After each exercise (and every 6 hours on open) `syncReport()` posts the last 5 weeks of history, plans, targets, levels and plan settings to api.php, which saves `rooms/reports/<key>.json`. No name is sent.
+- `index.html?report=<key>` is viewer mode (`VIEW`): loads that data into `S`, never saves, no Feedback button, and shows My report with a Refresh button.
+- Settings > Family report: on/off switch (`S.settings.shareReport`, default on) and "Share the family link" (share sheet, falling back to copy).
+- The key is the only protection, so the link should stay private. `rooms/` is blocked from direct access, including `rooms/reports/`.
+
 ## Daily reminder (v1.12)
 - Settings > Daily reminder: time input(s) (`S.settings.remind`, `remind2` when the day is in two parts) and a button that opens `api.php?reminder=1&d=YYYYMMDD&t=HH:MM[&t2=]`.
 - api.php returns an .ics with one or two daily repeating events (floating local time, alert at start, link back to the app). iPadOS offers "Add All" to Calendar. Changing the time means deleting the event in Calendar and adding again.
@@ -67,6 +73,7 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 `dailypractice.v1`: settings (incl. `perDay`, `parts`, `goalDays`), levels, `targets`, `plan`, `plans`, history (last 800 rounds), today's photo, recent photos, Photo Match bests.
 `braingym.room`: the last online game, for Rejoin (6 hours).
 `braingym.outbox`: feedback notes not yet sent.
+`braingym.reportkey`, `braingym.reportSent`: family report key and last send time.
 
 ## Deploy
 GitHub `main` deploys to Hostinger `public_html/braingym` via Git auto-deploy, at mediapotion.net/braingym.

@@ -277,13 +277,13 @@ div.cell{ cursor:default; }
 .cal{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:0.4rem; padding:1rem 1rem 0.6rem; max-width:32rem; }
 .cal b{ text-align:center; color:var(--muted); font-size:0.9rem; }
 .cal i{ font-style:normal; aspect-ratio:1; display:grid; place-items:center; border-radius:0.5rem; border:2px solid var(--line); font-weight:700; }
-.cal i.part{ background:var(--cell); border-color:var(--primary); }
+.cal i.part{ background:var(--cell); background:color-mix(in srgb, var(--primary) 32%, var(--surface)); border-color:var(--primary); }
 .cal i.full{ background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
 .cal i.today{ outline:3px solid var(--mark); outline-offset:1px; }
 .legend{ display:flex; flex-wrap:wrap; gap:0.5rem 1.2rem; padding:0 1rem 1rem; font-size:0.95rem; color:var(--muted); }
 .legend span{ display:inline-flex; align-items:center; gap:0.4rem; }
 .legend i{ width:1.1rem; height:1.1rem; border-radius:0.3rem; border:2px solid var(--line); }
-.legend i.part{ background:var(--cell); border-color:var(--primary); }
+.legend i.part{ background:var(--cell); background:color-mix(in srgb, var(--primary) 32%, var(--surface)); border-color:var(--primary); }
 .legend i.full{ background:var(--primary); border-color:var(--primary); }
 .wrow{ display:grid; grid-template-columns:minmax(9rem, 1.3fr) minmax(5rem, 2fr) 4.2rem; align-items:center; gap:0.4rem 1rem; padding:0.7rem 1rem; border-bottom:1px solid var(--line); }
 .wrow:last-child{ border-bottom:0; }
@@ -434,13 +434,15 @@ function pulseAnchor() { anchor.classList.add('pulse'); setTimeout(() => anchor.
 
 /* ---------- saved data (this device only) ---------- */
 const KEY = 'dailypractice.v1';
-const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true, perDay: 7, parts: 1, goalDays: 6, remind: '10:00', remind2: '15:00', remindSet: false }, levels: {}, history: [] });
+const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true, perDay: 7, parts: 1, goalDays: 6, remind: '10:00', remind2: '15:00', remindSet: false, shareReport: true }, levels: {}, history: [] });
 let S = blank();
 try {
   const raw = localStorage.getItem(KEY);
   if (raw) { const p = JSON.parse(raw); S = Object.assign(blank(), p); S.settings = Object.assign(blank().settings, p.settings || {}); if (!Array.isArray(S.history)) S.history = []; if (!S.levels) S.levels = {}; }
 } catch (e) { S = blank(); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+const VIEW = (() => { try { const k = new URLSearchParams(location.search).get('report'); return k && /^[a-f0-9]{32}$/.test(k) ? k : null; } catch (e) { return null; } })();
+let VIEW_SENT = 0;
+function save() { if (VIEW) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 function applySettings() {
   document.documentElement.dataset.big = S.settings.big ? 'on' : 'off';
   document.documentElement.dataset.guide = S.settings.guide ? 'on' : 'off';
@@ -1608,6 +1610,7 @@ function endBlock() {
   S.history.push({ t: Date.now(), id: ex.id, lv: run.level, sc: Math.round(mean * 100) / 100, x, d: Math.min(1800, Math.round((Date.now() - (run.blockStart || Date.now())) / 1000)) });
   if (S.history.length > 800) S.history = S.history.slice(-800);
   save();
+  setTimeout(syncReport, 0);
   run.results.push({ ex, score: mean, level: run.level, next: lv, change, x });
   const more = run.qi + 1 < run.queue.length;
   if (run.session && run.photo) {
@@ -1792,7 +1795,7 @@ function reportTop() {
     h('div', { class: 'stats' },
       stat(`${F.days} of 7`, `days practiced. Goal: ${F.goalDays}`),
       stat(`${F.full}`, F.full === 1 ? 'day with the whole plan done' : 'days with the whole plan done'),
-      stat(F.mins ? `${F.mins}` : `${F.rounds}`, F.mins ? 'minutes of practice' : 'exercises done'),
+      stat(F.mins ? `${F.mins}` : `${F.rounds}`, F.mins ? (F.mins === 1 ? 'minute of practice' : 'minutes of practice') : (F.rounds === 1 ? 'exercise done' : 'exercises done')),
       stat(`${F.metSum} of ${F.goalSum}`, 'weekly goals met')),
     h('h2', { class: 'area', text: 'Last 4 weeks' }),
     h('div', { class: 'group' }, calendar()),
@@ -1801,11 +1804,17 @@ function reportTop() {
     h('div', { class: 'btnrow' }, share), status
   ];
 }
+function reportBar() {
+  if (!VIEW) return backBar('My report');
+  const when = VIEW_SENT ? new Date(VIEW_SENT).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  return [h('header', { class: 'top' }, h('h1', { text: 'Brain Gym report' }), h('button', { class: 'btn quiet small', type: 'button', text: 'Refresh', onclick: () => location.reload() })),
+    h('p', { class: 'muted', text: (when ? `Last sent from the iPad ${when}. ` : '') + 'Updates after each exercise he finishes. Covers the last 5 weeks.' })];
+}
 function showProgress() {
   clearTimers();
   if (!S.history.length) {
-    screen(backBar('My report'), h('p', { text: 'Nothing yet. Start today’s practice and your report will fill in here.' }),
-      h('button', { class: 'btn big', type: 'button', text: 'Start today’s practice', onclick: startSession }));
+    screen(reportBar(), h('p', { text: VIEW ? 'Nothing practiced yet.' : 'Nothing yet. Start today’s practice and your report will fill in here.' }),
+      VIEW ? null : h('button', { class: 'btn big', type: 'button', text: 'Start today’s practice', onclick: startSession }));
     return;
   }
   const scans = S.history.filter(x => x.id === 'scan' && x.x && x.x.L).slice(-8);
@@ -1858,7 +1867,7 @@ function showProgress() {
       list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
       h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
   });
-  screen(backBar('My report'), reportTop(), middle, sides, reading, seeking,
+  screen(reportBar(), reportTop(), middle, sides, reading, seeking,
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
@@ -1891,6 +1900,19 @@ function showSettings(focus) {
       h('div', { class: 'stepper' },
         h('button', { type: 'button', 'aria-label': `Less: ${aria || label}`, text: '−', onclick: () => step(-1) }), out,
         h('button', { type: 'button', 'aria-label': `More: ${aria || label}`, text: '+', onclick: () => step(1) })));
+  };
+  const familyLinkField = () => {
+    const last = +(localStorage.getItem('braingym.reportSent') || 0);
+    const status = h('p', { class: 'muted', style: 'margin:0', role: 'status', text: (last ? `Last sent ${new Date(last).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. ` : 'Not sent yet. ') + 'Family can open the link on any phone or computer to see this report. Keep it private.' });
+    const btn = h('button', { class: 'btn', type: 'button', text: 'Share the family link' });
+    btn.addEventListener('click', async () => {
+      const url = reportLink();
+      syncReport(true);
+      try { if (navigator.share) { await navigator.share({ title: 'Brain Gym report', url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(url); status.textContent = 'Link copied. Paste it into a message.'; }
+      catch (e) { status.replaceChildren(h('textarea', { class: 'reporttext', readonly: true, rows: '2', text: url })); }
+    });
+    return h('div', { class: 'field' }, status, btn);
   };
   const reminderFields = () => {
     const two = (S.settings.parts || 1) > 1;
@@ -1926,6 +1948,8 @@ function showSettings(focus) {
       sw('Red guide line on the left edge', 'guide'),
       sw('Sounds', 'sound'),
       canSpeak ? sw('Read instructions aloud', 'voice') : null),
+    h('h2', { class: 'area', id: 'family', text: 'Family report' }),
+    h('div', { class: 'group' }, sw('Send my report to my family', 'shareReport'), familyLinkField()),
     h('h2', { class: 'area', id: 'plan', text: 'Daily plan' }),
     h('div', { class: 'group' },
       numField('Exercises each day', 'perDay', 3, 12, v => plural(v, 'exercise')),
@@ -2228,7 +2252,7 @@ function drawMatch() {
 
 /* ---------- feedback button (always on screen) ----------
    Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
-const APP_VERSION = 'Version 1.12, November 14, 2026';
+const APP_VERSION = 'Version 1.13, November 14, 2026';
 const OUTBOX = 'braingym.outbox';
 const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
 function outbox(list) {
@@ -2300,13 +2324,63 @@ function openFeedback() {
   document.body.append(modal);
   try { tags.firstChild.focus({ preventScroll: true }); } catch (e) {}
 }
-document.body.append(h('button', { id: 'fbk', type: 'button', text: 'Feedback', onclick: openFeedback }));
-window.addEventListener('online', () => flushOutbox());
-setTimeout(() => { if (outbox().length) flushOutbox(); }, 3000);
+/* ---------- family report sync ----------
+   After each exercise the iPad posts its last 5 weeks of data to api.php under a random key.
+   Opening index.html?report=<key> shows My report from that data (read-only, nothing saved). */
+function reportKey() {
+  try {
+    let k = localStorage.getItem('braingym.reportkey');
+    if (!k || !/^[a-f0-9]{32}$/.test(k)) {
+      const b = new Uint8Array(16); crypto.getRandomValues(b);
+      k = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('braingym.reportkey', k);
+    }
+    return k;
+  } catch (e) { return null; }
+}
+const reportLink = () => location.origin + location.pathname + '?report=' + reportKey();
+async function syncReport(force) {
+  if (VIEW || !S.settings.shareReport) return;
+  const key = reportKey(); if (!key) return;
+  const since = Date.now() - 35 * DAY;
+  const data = { v: 1, version: APP_VERSION, sent: Date.now(),
+    history: S.history.filter(x => x.t >= since), plans: (S.plans || []).slice(-35), plan: S.plan || null,
+    targets: S.targets || {}, levels: S.levels, settings: { perDay: S.settings.perDay, parts: S.settings.parts, goalDays: S.settings.goalDays } };
+  try {
+    const r = await fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ report: { key, data } }) });
+    if (r.ok) try { localStorage.setItem('braingym.reportSent', String(Date.now())); } catch (e) {}
+  } catch (e) {}
+}
+async function showSharedReport() {
+  screen(h('h1', { text: 'Brain Gym report' }), h('p', { class: 'muted', text: 'Loading…' }));
+  try {
+    const r = await fetch('api.php?report=' + VIEW, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json(), d = j.data || {};
+    S = Object.assign(blank(), { history: Array.isArray(d.history) ? d.history : [], plans: d.plans || [], plan: d.plan || null, targets: d.targets || {}, levels: d.levels || {} });
+    S.settings = Object.assign(blank().settings, d.settings || {});
+    VIEW_SENT = d.sent || (j.t ? j.t * 1000 : 0);
+    showProgress();
+  } catch (e) {
+    screen(h('h1', { text: 'Brain Gym report' }),
+      h('p', { text: 'This report isn’t available yet. Check that the link is complete, or open Brain Gym on the iPad and finish one exercise so it sends a report.' }),
+      h('button', { class: 'btn', type: 'button', text: 'Try again', onclick: () => location.reload() }));
+  }
+}
+
+if (!VIEW) {
+  document.body.append(h('button', { id: 'fbk', type: 'button', text: 'Feedback', onclick: openFeedback }));
+  window.addEventListener('online', () => { flushOutbox(); syncReport(); });
+  setTimeout(() => {
+    if (outbox().length) flushOutbox();
+    const last = +(localStorage.getItem('braingym.reportSent') || 0);
+    if (S.history.length && Date.now() - last > 6 * 3600000) syncReport();
+  }, 3000);
+}
 
 /*TEST*/
 applySettings();
-showHome();
+if (VIEW) showSharedReport(); else showHome();
 })();
 </script>
 </body>

@@ -1,3 +1,4 @@
 rooms/*.json
 rooms/*.jsonl
 rooms/*.log
+rooms/reports/
