@@ -56,8 +56,15 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - `LIFE`: 24 short, safe tasks around the house that use the same skills (look left first, read whole lines). Home shows one a day (`lifeCard`, `S.lifeToday`), skipping the last 12 done. "A different one" moves to the next.
 - "I did it" adds `{t, i}` to `S.life` (300 kept). The report counts it (tile, calendar "some practice", share text) and it syncs to the family report.
 
+## Backup and restore (v1.16)
+- The family report copy is the backup. Settings > Restore progress (or Home's "Restore my progress" when history is empty) takes the report link, merges history/life/plans without duplicates, keeps the higher level per exercise, and adopts that key so the link stays the same.
+- On start the app asks for persistent storage (`navigator.storage.persist()`), so Safari is less likely to clear it.
+
+## Settings lock (v1.16)
+- Settings shows his own options (name, text size, guide line, sounds, voice). Family settings (report, plan, reminder, goals, levels, restore, erase) open after a 2-second press and hold (`familyOpen`), and lock again on Home. `showSettings('remind' | 'restore' | ...)` from a Home button opens them directly.
+
 ## Family report link (v1.13)
-- The iPad makes a random key once (`braingym.reportkey`). After each exercise (and every 6 hours on open) `syncReport()` posts the last 5 weeks of history, plans, targets, levels and plan settings to api.php, which saves `rooms/reports/<key>.json`. No name is sent.
+- The iPad makes a random key once (`braingym.reportkey`). After each exercise (and every 6 hours on open) `syncReport()` posts the full history, life tasks, plans, targets, levels and settings (never the name) to api.php, which saves `rooms/reports/<key>.json`. No name is sent.
 - `index.html?report=<key>` is viewer mode (`VIEW`): loads that data into `S`, never saves, no Feedback button, and shows My report with a Refresh button.
 - Settings > Family report: on/off switch (`S.settings.shareReport`, default on) and "Share the family link" (share sheet, falling back to copy).
 - The key is the only protection, so the link should stay private. `rooms/` is blocked from direct access, including `rooms/reports/`.

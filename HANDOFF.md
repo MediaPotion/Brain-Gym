@@ -1,9 +1,10 @@
 # Brain Gym handoff
 
-**Status:** v1.15 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
+**Status:** v1.16 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
 
 ## Built but not confirmed on the real site or iPad
-- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.15`.
+- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.16`.
+- **Settings lock and restore** (v1.16): family settings open with a 2-second press and hold. Make sure he uses Brain Gym from a Home Screen icon (Share > Add to Home Screen), since Safari tabs can lose storage after 7 days unused. If scores ever vanish, use Settings > Restore progress with the family report link.
 - **Quick look** (v1.15): flash times run 1.5 s at level 1 down to 0.45 s at level 5. Check that level 1 isn't too fast for him.
 - **Real-life tasks** (v1.14): ask Nick whether the 24 tasks fit his dad's home and abilities (all are seated or standing still, no stove or walking tasks).
 - **Family report link** (v1.13): on the iPad, Settings > Family report > Share the family link, send it to Nick, then open it on Nick's phone. It needs `api.php` running on Hostinger (same check as Photo Match).
@@ -21,7 +22,7 @@
 - **Sounds on the iPad.** iOS needs a first tap to unlock audio, which is handled in code but untested on a device.
 
 ## Next
-1. Nick to confirm v1.15 is live, get the family report link from the iPad, set up the feedback token, and the `api.php` check passes.
+1. Nick to confirm v1.16 is live, get the family report link from the iPad, set up the feedback token, and the `api.php` check passes.
 2. Add family photos. Nick sends them, Claude resizes them to ~1600px JPEG, adds captions (who + roughly when), and updates `list.json`.
 3. Test Photo Match online: Nick plus another device, then Dad with his grandkid over FaceTime.
 4. Hemianopia work (see ROADMAP.md "Hemianopia"): get his visual-field printout, then quick-glance practice (sound-cued search is built).

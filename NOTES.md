@@ -2,7 +2,8 @@
 
 Decision log, newest first. One entry per session. Grep by date; don't read it whole.
 
-## 2026-11-14 (v1.8–1.15)
+## 2026-11-14 (v1.8–1.16)
+- Backup and Settings lock (v1.16): the family report now carries all data, so it doubles as the backup (Safari can clear site storage after 7 days without use outside Home Screen apps). Family settings sit behind a press and hold instead of a code, so nobody has to remember a code and accidental changes are unlikely.
 - Quick look (v1.15): tap the center +, a symbol flashes briefly (70% on the left, 22–44% of the width from center), then pick it from 3. Naming it requires looking at it, so it trains fast looks into the blind side without eye tracking. Flash time shortens with level. Goal 4 a week.
 - Real-life tasks (v1.14): one a day on Home, because brain-game gains often stay in the game. Kept deliberately safe (no stove, no walking drills) until Nick or his OT says otherwise.
 - Family report link (v1.13): the iPad syncs its data, and the same report code renders it read-only for Nick. Chosen over emailing or committing reports, so health data stays off the public repo. Access works by unguessable link, like a shared photo album.
