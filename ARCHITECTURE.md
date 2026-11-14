@@ -52,6 +52,11 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - Clients poll every second. Turn-based, so lag doesn't matter. Only the player whose turn it is can flip.
 - Storage is `rooms/` (falls back to the system temp folder if it can't write there).
 
+## Daily reminder (v1.12)
+- Settings > Daily reminder: time input(s) (`S.settings.remind`, `remind2` when the day is in two parts) and a button that opens `api.php?reminder=1&d=YYYYMMDD&t=HH:MM[&t2=]`.
+- api.php returns an .ics with one or two daily repeating events (floating local time, alert at start, link back to the app). iPadOS offers "Add All" to Calendar. Changing the time means deleting the event in Calendar and adding again.
+- Home shows a "Set a daily reminder" button until `S.settings.remindSet`.
+
 ## Feedback button
 - `#fbk`, fixed top right on every screen. `#app > :first-child` gets right padding so headers don't sit under it.
 - Opens a dialog: 8 quick-tap tags (must match `FEEDBACK_TAGS` in both index.html and api.php) + an optional note. Adds where he was (`whereNow()`), version, local time.

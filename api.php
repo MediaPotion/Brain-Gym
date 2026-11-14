@@ -7,6 +7,8 @@
 //   Saves the note to rooms/feedback-pending.jsonl, then commits every pending note to ROADMAP.md on GitHub.
 //   Needs a GitHub token in braingym-secret.php two folders up (outside public_html, never in this public repo):
 //   <?php return ['github_token' => 'github_pat_...'];
+// GET  api.php?reminder=1&d=YYYYMMDD&t=HH:MM[&t2=HH:MM]  -> a calendar file (.ics) with a daily Brain Gym reminder
+//   (two events when t2 is given). The iPad offers to add it to Calendar.
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -146,7 +148,43 @@ function handle_feedback($in) {
   exit;
 }
 
+/* ---------- daily reminder (calendar file) ---------- */
+function reminder() {
+  $d = preg_match('/^\d{8}$/', $_GET['d'] ?? '') ? $_GET['d'] : date('Ymd');
+  $times = [];
+  foreach (['t', 't2'] as $k) {
+    if (!preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $_GET[$k] ?? '', $m)) continue;
+    $times[] = sprintf('%02d%02d', $m[1], $m[2]);
+  }
+  if (!$times) $times = ['1000'];
+  $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+  $host = preg_replace('/[^A-Za-z0-9.:-]/', '', $_SERVER['HTTP_HOST'] ?? 'mediapotion.net');
+  $url = ($https ? 'https' : 'http') . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/braingym/api.php'), '/') . '/';
+  $n = count($times);
+  $out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Brain Gym//Reminder//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  foreach ($times as $i => $hm) {
+    $title = $n > 1 ? 'Brain Gym, part ' . ($i + 1) . ' of 2' : 'Brain Gym time';
+    $out = array_merge($out, ['BEGIN:VEVENT',
+      'UID:braingym-' . bin2hex(random_bytes(8)) . '@' . preg_replace('/:\d+$/', '', $host),
+      'DTSTAMP:' . gmdate('Ymd\THis\Z'),
+      'DTSTART:' . $d . 'T' . $hm . '00',
+      'DURATION:PT' . ($n > 1 ? 10 : 20) . 'M',
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:' . $title,
+      'DESCRIPTION:Open Brain Gym and do today\'s plan.',
+      'URL:' . $url,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' . $title, 'TRIGGER:PT0M', 'END:VALARM',
+      'END:VEVENT']);
+  }
+  $out[] = 'END:VCALENDAR';
+  header('Content-Type: text/calendar; charset=utf-8');
+  header('Content-Disposition: inline; filename="brain-gym-reminder.ics"');
+  echo implode("\r\n", $out) . "\r\n";
+  exit;
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'GET' && isset($_GET['reminder'])) reminder();
 
 if ($method === 'GET') {
   $path = room_path($_GET['room'] ?? '');

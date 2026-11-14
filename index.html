@@ -292,6 +292,7 @@ div.cell{ cursor:default; }
 .wbar{ height:1.1rem; background:var(--cell); border-radius:0.55rem; overflow:hidden; }
 .wbar i{ display:block; height:100%; background:var(--primary); }
 .reporttext{ width:100%; font:inherit; font-size:0.95rem; padding:0.6rem; border:2px solid var(--line); border-radius:0.6rem; background:var(--surface); color:var(--ink); }
+.field input[type="time"]{ font:inherit; font-size:1.2rem; min-height:3rem; padding:0.3rem 0.7rem; border:2px solid var(--line); border-radius:0.6rem; background:var(--surface); color:var(--ink); }
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -433,7 +434,7 @@ function pulseAnchor() { anchor.classList.add('pulse'); setTimeout(() => anchor.
 
 /* ---------- saved data (this device only) ---------- */
 const KEY = 'dailypractice.v1';
-const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true, perDay: 7, parts: 1, goalDays: 6 }, levels: {}, history: [] });
+const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true, perDay: 7, parts: 1, goalDays: 6, remind: '10:00', remind2: '15:00', remindSet: false }, levels: {}, history: [] });
 let S = blank();
 try {
   const raw = localStorage.getItem(KEY);
@@ -1703,7 +1704,8 @@ function planCard() {
   return [h('h2', { class: 'area', text: `Today’s plan: ${P.ids.length - left.length} of ${P.ids.length} done` }),
     h('div', { class: 'group' }, rows),
     h('div', { class: 'btnrow starts' }, lead, family),
-    h('p', { class: 'muted', text: note })];
+    h('p', { class: 'muted', text: note }),
+    S.settings.remindSet ? null : h('button', { class: 'btn quiet small', type: 'button', text: 'Set a daily reminder', onclick: () => showSettings('remind') })];
 }
 function homePhoto() {
   const P = PHOTOS.length ? photoToday(false) : null;
@@ -1860,7 +1862,7 @@ function showProgress() {
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
-function showSettings() {
+function showSettings(focus) {
   clearTimers();
   const sw = (label, key) => {
     const state = h('em', { text: S.settings[key] ? 'On' : 'Off' });
@@ -1890,7 +1892,25 @@ function showSettings() {
         h('button', { type: 'button', 'aria-label': `Less: ${aria || label}`, text: '−', onclick: () => step(-1) }), out,
         h('button', { type: 'button', 'aria-label': `More: ${aria || label}`, text: '+', onclick: () => step(1) })));
   };
-  const numField = (label, key, min, max, fmt) => stepField(label, () => S.settings[key], v => { S.settings[key] = v; }, min, max, fmt);
+  const reminderFields = () => {
+    const two = (S.settings.parts || 1) > 1;
+    const time = (key, label) => {
+      const inp = h('input', { type: 'time', id: 'rm-' + key, value: S.settings[key] || '10:00' });
+      inp.addEventListener('change', () => { if (/^\d{1,2}:\d{2}$/.test(inp.value)) { S.settings[key] = inp.value; save(); } });
+      return h('div', { class: 'field' }, h('label', { for: 'rm-' + key, text: label }), inp);
+    };
+    const add = h('button', { class: 'btn', type: 'button', text: S.settings.remindSet ? 'Add the reminder again' : 'Add reminder to Calendar' });
+    add.addEventListener('click', () => {
+      const d = new Date(), ymd = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      const url = `api.php?reminder=1&d=${ymd}&t=${encodeURIComponent(S.settings.remind)}` + (two ? `&t2=${encodeURIComponent(S.settings.remind2)}` : '');
+      S.settings.remindSet = true; save();
+      let w = null; try { w = window.open(url, '_blank'); } catch (e) {}
+      if (!w) location.href = url;
+    });
+    return [time('remind', two ? 'Part 1 reminder' : 'Reminder time'), two ? time('remind2', 'Part 2 reminder') : null,
+      h('div', { class: 'field' }, h('p', { class: 'muted', style: 'margin:0', text: 'The iPad will show the reminder. Tap “Add All” or “Add to Calendar”. It repeats every day. To change the time later, delete it in Calendar and add it again here.' }), add)];
+  };
+  const numField = (label, key, min, max, fmt) => stepField(label, () => S.settings[key], v => { const was = S.settings[key]; S.settings[key] = v; if (key === 'parts' && v !== was) later(() => showSettings('plan'), 0); }, min, max, fmt);
   const goals = EX.map(e => stepField(e.name, () => targetOf(e.id), v => { S.targets = Object.assign({}, S.targets, { [e.id]: v }); }, 0, 7,
     v => v ? `${v} a week` : 'Off', `times a week for ${e.name}`));
   let armed = false;
@@ -1906,11 +1926,13 @@ function showSettings() {
       sw('Red guide line on the left edge', 'guide'),
       sw('Sounds', 'sound'),
       canSpeak ? sw('Read instructions aloud', 'voice') : null),
-    h('h2', { class: 'area', text: 'Daily plan' }),
+    h('h2', { class: 'area', id: 'plan', text: 'Daily plan' }),
     h('div', { class: 'group' },
       numField('Exercises each day', 'perDay', 3, 12, v => plural(v, 'exercise')),
       numField('Split each day into', 'parts', 1, 2, v => v === 1 ? 'One part' : 'Two parts'),
       numField('Goal: practice days a week', 'goalDays', 1, 7, v => plural(v, 'day'))),
+    h('h2', { class: 'area', id: 'remind', text: 'Daily reminder in the iPad Calendar' }),
+    h('div', { class: 'group' }, reminderFields()),
     h('h2', { class: 'area', text: 'Weekly goal for each exercise. Ask his therapist what fits' }),
     h('div', { class: 'group' }, goals),
     h('p', { class: 'note', text: 'Changes show up in today’s plan if today’s practice hasn’t started yet, otherwise tomorrow.' }),
@@ -1920,6 +1942,7 @@ function showSettings() {
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
     h('p', { class: 'note', text: APP_VERSION })
   );
+  if (focus) { const el = document.getElementById(focus); if (el) try { el.scrollIntoView({ block: 'start' }); } catch (e) {} }
 }
 
 /* ---------- family games: Photo Match ---------- */
@@ -2205,7 +2228,7 @@ function drawMatch() {
 
 /* ---------- feedback button (always on screen) ----------
    Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
-const APP_VERSION = 'Version 1.11, November 14, 2026';
+const APP_VERSION = 'Version 1.12, November 14, 2026';
 const OUTBOX = 'braingym.outbox';
 const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
 function outbox(list) {

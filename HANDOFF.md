@@ -1,9 +1,10 @@
 # Brain Gym handoff
 
-**Status:** v1.11 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
+**Status:** v1.12 (Nov 14, 2026) pushed to GitHub. Last version Nick confirmed on the site: v1.3 (Oct 17).
 
 ## Built but not confirmed on the real site or iPad
-- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.11`.
+- **v1.5–1.10 reaching the site.** Check Settings shows `Version 1.12`.
+- **Daily reminder** (v1.12): on the iPad, Settings > Daily reminder > Add reminder to Calendar should show the Calendar "Add All" sheet, including when Brain Gym is opened from the Home Screen icon. Untested on a real device.
 - **Daily plan and My report** (v1.11): does the plan length (7 a day) and the weekly goals suit him? Both are in Settings. Try Share this report on the iPad: it should open the share sheet so he can send it to Nick by Messages.
 - **Feedback button needs a GitHub token on Hostinger** before notes reach ROADMAP.md (until then they wait on the server). Steps:
   1. GitHub > Settings > Developer settings > Fine-grained tokens > Generate. Repository access: only `MediaPotion/Brain-Gym`. Permissions: Contents, Read and write. Note the expiry date; notes queue up again when it expires.
@@ -17,7 +18,7 @@
 - **Sounds on the iPad.** iOS needs a first tap to unlock audio, which is handled in code but untested on a device.
 
 ## Next
-1. Nick to confirm v1.11 is live, set up the feedback token, and the `api.php` check passes.
+1. Nick to confirm v1.12 is live, set up the feedback token, and the `api.php` check passes.
 2. Add family photos. Nick sends them, Claude resizes them to ~1600px JPEG, adds captions (who + roughly when), and updates `list.json`.
 3. Test Photo Match online: Nick plus another device, then Dad with his grandkid over FaceTime.
 4. Hemianopia work (see ROADMAP.md "Hemianopia"): get his visual-field printout, then quick-glance practice (sound-cued search is built).
