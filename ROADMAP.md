@@ -9,11 +9,11 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 - His interests (hobbies, old work, teams) to theme the games so they feel like his.
 
 ## Hemianopia (partial left field loss, from the Nov 14 research review)
-- Built: Read line by line (v1.8).
+- Built: Read line by line (v1.8), Listen and find (v1.9, also gives left vs. right find times).
 - **Waiting on Nick:** his visual-field test printout (which part of the left side is missing), whether he also has left neglect, and his eye specialist's/OT's view.
-- **Sound-cued search:** targets on the left play a tone panned left (Web Audio StereoPannerNode), and the cue fades as he improves. Small RCT support (Keller 2010).
 - **Quick-glance practice:** eyes on center, a target flashes briefly on the left, look and tap. Trains fast, large saccades into the blind side.
-- **Left vs. right timing** on every exercise, so Progress can show the left catching up.
+- **Left vs. right timing** on the other scanning exercises (Listen and find has it).
+- **Own workout section?** All five hemianopia-relevant exercises share "Looking left and scanning", so each comes up about once every five days. A separate area would make it daily but lengthens the workout and changes the photo reveal's `need`.
 - Not in the app: blind-field restoration training. It needs verified fixation (eye tracking). Ask his specialist about supervised programs.
 
 ## Next to build

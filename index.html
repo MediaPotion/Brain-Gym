@@ -239,6 +239,12 @@ div.cell{ cursor:default; }
 .rw.ok{ box-shadow:inset 0 -4px 0 var(--good); }
 .rw.hint{ box-shadow:0 0 0 4px var(--mark); }
 
+.seek{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; overflow:hidden; -webkit-user-select:none; user-select:none; }
+.seek .dot{ position:absolute; transform:translate(-50%,-50%); color:var(--muted); font-size:1.6rem; line-height:1; pointer-events:none; }
+.seek .star{ position:absolute; transform:translate(-50%,-50%); width:64px; height:64px; padding:0; border:0; border-radius:50%; background:none; color:var(--mark); font-size:2.6rem; line-height:1; display:grid; place-items:center; }
+.seek .star.hint{ box-shadow:0 0 0 5px var(--mark); }
+.seek .star.got{ color:var(--good); }
+
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -424,6 +430,30 @@ function blip(kind) {
     o.frequency.setValueAtTime(f[0], t); o.frequency.linearRampToValueAtTime(f[1], t + dur * 0.6);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.start(t); o.stop(t + dur + 0.05);
+  } catch (e) {}
+}
+// A short noise burst from one side. x: -1 far left to 1 far right. Noise is easier to place by ear than a pure tone.
+let noiseBuf;
+function sideBeep(x) {
+  if (!S.settings.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (!noiseBuf) {
+      noiseBuf = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.12), ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t = ac.currentTime, out = ac.createGain();
+    out.gain.value = 0.5;
+    if (ac.createStereoPanner) { const pn = ac.createStereoPanner(); pn.pan.value = Math.max(-1, Math.min(1, x)); out.connect(pn); pn.connect(ac.destination); }
+    else out.connect(ac.destination);
+    [0, 0.16, 0.32].forEach(dt => {
+      const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = noiseBuf; bp.type = 'bandpass'; bp.frequency.value = 2500; bp.Q.value = 0.8;
+      src.connect(bp); bp.connect(g); g.connect(out);
+      g.gain.setValueAtTime(0.0001, t + dt); g.gain.exponentialRampToValueAtTime(0.9, t + dt + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.1);
+      src.start(t + dt); src.stop(t + dt + 0.12);
+    });
   } catch (e) {}
 }
 const canSpeak = 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
@@ -873,6 +903,75 @@ const EX = [
         if (!res.L && res.R) msg += ' The answer near the left edge got missed.';
         finish(0.6 * hits / N + 0.4 * qc / 2, msg, { L: [res.L ? 1 : 0, 1], R: [res.R ? 1 : 0, 1], ls: [hits, N] });
       }
+    }
+  },
+  {
+    id: 'seek', area: 'Looking left and scanning', name: 'Listen and find', what: 'A beep tells you which side to look', trials: 1, max: 5,
+    how: lv => 'A yellow star appears somewhere. A beep comes from its side. Find the star and tap it.' + (lv >= 5 ? ' Some stars don’t beep.' : '') +
+      (S.settings.sound ? ' Headphones, or holding the iPad sideways, make the side easier to hear.' : ' Sounds are off in Settings, so there is no beep.'),
+    run(lv, stage, finish) {
+      const c = [0, { d: 14, rep: 1, all: 1, look: '●' }, { d: 26, rep: 1, all: 1, look: '●' }, { d: 26, rep: 0, all: 1, look: '●' },
+        { d: 36, rep: 0, all: 1, look: '✦' }, { d: 36, rep: 0, all: 0, look: '✦' }][lv];
+      const N = 10, HINT = 8000;
+      const cue = h('p', { class: 'cue track-status', role: 'status', text: `Star 1 of ${N}.` });
+      const board = h('div', { class: 'seek' });
+      stage.append(cue, board);
+      const W = board.clientWidth || 640;
+      const top = board.getBoundingClientRect().top || 200;
+      const H = Math.round(Math.max(300, Math.min(W * 0.75, (window.innerHeight || 800) - top - 30)));
+      board.style.height = H + 'px';
+      const cols = Math.max(6, Math.floor(W / 80)), rows = Math.max(4, Math.floor(H / 80));
+      const cw = W / cols, ch = H / rows;
+      // Two of every three stars on the left, in a shuffled order.
+      const sides = shuffle(range(N).map(i => i % 3 !== 2 ? 'L' : 'R'));
+      const X = { L: [0, 0], R: [0, 0], tL: [0, 0], tR: [0, 0] };
+      let i = 0, fast = 0;
+      function next() {
+        board.replaceChildren();
+        if (i >= N) return done();
+        const side = sides[i], half = Math.floor(cols / 2);
+        const pool = range(cols * rows).filter(k => side === 'L' ? k % cols < half : k % cols >= half);
+        const at = pick(pool);
+        const keep = (v, max) => Math.max(36, Math.min(max - 36, v));
+        const pos = k => [keep((k % cols + 0.5 + (Math.random() - 0.5) * 0.4) * cw, W), keep((Math.floor(k / cols) + 0.5 + (Math.random() - 0.5) * 0.4) * ch, H)];
+        shuffle(range(cols * rows).filter(k => k !== at)).slice(0, c.d).forEach(k => {
+          const [x, y] = pos(k);
+          board.append(h('div', { class: 'dot', style: `left:${x}px;top:${y}px`, text: c.look }));
+        });
+        const [x, y] = pos(at);
+        const star = h('button', { class: 'star', type: 'button', 'aria-label': 'Star', text: '★', style: `left:${x}px;top:${y}px` });
+        board.append(star);
+        const beeps = c.all || i % 2 === 0;
+        const pan = (x / W) * 2 - 1, t0 = Date.now();
+        let hinted = false, found = false;
+        const beep = () => { if (found) return; sideBeep(pan); if (c.rep) later(beep, 1800); };
+        if (beeps) later(beep, 150);
+        later(() => {
+          if (found) return;
+          hinted = true; star.classList.add('hint');
+          cue.textContent = `Look on the ${side === 'L' ? 'left' : 'right'} side` + (side === 'L' && S.settings.guide ? ', near the red line.' : '.');
+          if (side === 'L') pulseAnchor();
+          if (beeps) sideBeep(pan);
+        }, HINT);
+        star.addEventListener('click', () => {
+          if (found) return; found = true;
+          const ms = Date.now() - t0;
+          star.classList.remove('hint'); star.classList.add('got'); blip('on');
+          X[side][1]++; X['t' + side][1]++; X['t' + side][0] += Math.round(ms / 100);
+          if (!hinted) { X[side][0]++; fast++; }
+          i++;
+          cue.textContent = i < N ? `Found it. Star ${i + 1} of ${N} is next.` : 'Found it.';
+          later(next, 700);
+        });
+        cue.textContent = `Star ${i + 1} of ${N}.`;
+      }
+      function done() {
+        const secs = s => X['t' + s][1] ? X['t' + s][0] / 10 / X['t' + s][1] : 0;
+        let msg = fast === N ? `You found all ${N} stars without a hint.` : `You found ${fast} of ${N} stars without a hint, and ${N - fast === 1 ? 'one more' : (N - fast) + ' more'} with a hint.`;
+        msg += ` On average it took about ${secs('L').toFixed(1)} seconds on the left and ${secs('R').toFixed(1)} on the right.`;
+        finish((fast + (N - fast) * 0.5) / N, msg, X);
+      }
+      next();
     }
   },
   {
@@ -1535,6 +1634,18 @@ function showProgress() {
         h('p', { text: `On average your taps land ${word(now)}.` + (bis.length > 5 ? ` When you started: ${word(first)}.` : '') }),
         h('p', { class: 'muted', text: 'Taps to the right of the middle mean the left side of the line is being missed. Closer to the center is better.' }))];
   }
+  const sks = S.history.filter(x => x.id === 'seek' && x.x && x.x.tL && x.x.tL[1] && x.x.tR && x.x.tR[1]);
+  let seeking = null;
+  if (sks.length) {
+    const avg = (list, k) => list.reduce((a, x) => a + x.x[k][0], 0) / 10 / list.reduce((a, x) => a + x.x[k][1], 0);
+    const last = sks.slice(-5), first = sks.slice(0, Math.min(5, sks.length));
+    const line = list => `left side ${avg(list, 'tL').toFixed(1)} seconds, right side ${avg(list, 'tR').toFixed(1)} seconds`;
+    seeking = [h('h2', { class: 'area', text: 'Listen and find: average time to find a star' }),
+      h('div', { class: 'group' },
+        h('p', { text: `Last 5 rounds: ${line(last)}.` }),
+        sks.length > 5 ? h('p', { text: `When you started: ${line(first)}.` }) : null,
+        h('p', { class: 'muted', text: 'When the left side gets as quick as the right, looking left has become a habit.' }))];
+  }
   const rds = S.history.filter(x => x.id === 'read' && x.x && x.x.ls && x.x.ls[1]);
   let reading = null;
   if (rds.length) {
@@ -1551,7 +1662,7 @@ function showProgress() {
       list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
       h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
   });
-  screen(backBar('Progress'), weekDots(), middle, sides, reading,
+  screen(backBar('Progress'), weekDots(), middle, sides, reading, seeking,
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
@@ -1594,7 +1705,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.8, November 14, 2026' })
+    h('p', { class: 'note', text: 'Version 1.9, November 14, 2026' })
   );
 }
 

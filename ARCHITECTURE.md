@@ -19,7 +19,7 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 | 13–331 | CSS. Color tokens at top (light + dark), iPad sizes in `@media (min-width:700px)` |
 | 341–380 | Helpers: `h()` builds HTML, `s()` builds SVG, `screen()`, `later()`/`clearTimers()`, `stops` |
 | 381–394 | Saved data: `S`, key `dailypractice.v1` in localStorage, `save()` |
-| 395–437 | Sound and speech: `tone()`, `blip()`, `say()`, `listenBtn()` |
+| 395–437 | Sound and speech: `tone()`, `blip()`, `sideBeep(x)` (noise burst panned left/right), `say()`, `listenBtn()` |
 | 438–459 | `choices()` multiple-choice buttons, `fresh()` no-repeat picker |
 | 460–539 | Content banks: `WORDS`, `STEPS`, `MEAN` (sayings, hints, sarcasm, judgment) |
 | 540–578 | **Personal routines** `ROUTINE` (fire, coffee burner) + stove drawing |
@@ -28,14 +28,14 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 | 670–1284 | `EX`, the exercises. Each has `id, area, name, what, trials, max, how(lv), run(lv, stage, finish)` |
 | 1285–1342 | Daily photo reveal (12 tiles, one step per finished exercise) |
 | 1343–1451 | Session flow: `pickSession`, `showIntro`, `showTrial`, `endBlock` (level up ≥85%, down <50%), `showSummary` |
-| 1452–1600 | Home, Progress (Find the middle gauge, left/right bars, line starts, mini charts), Settings (version line) |
+| 1452–1600 | Home, Progress (Find the middle gauge, left/right bars, line starts, left/right find times, mini charts), Settings (version line) |
 | 1601–1888 | Photo Match family game: deck, `commit()`/polling against `api.php`, setup screen, board |
 
 ## Exercises (id: area)
-scan, word, bisect, read: Looking left and scanning · trail, alert: Attention · copy, mirror, clock: Space and shapes ·
+scan, word, bisect, read, seek: Looking left and scanning · trail, alert: Attention · copy, mirror, clock: Space and shapes ·
 track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · routine: My routines
 
-`finish(score 0–1, message, extras)`. Extras feed Progress: `L`/`R` arrays are left/right hits, and `bi` is the Find the middle offset (tenths of %, count). `ls` is Read line by line's line starts found on the first try (hits, lines).
+`finish(score 0–1, message, extras)`. Extras feed Progress: `L`/`R` arrays are left/right hits, and `bi` is the Find the middle offset (tenths of %, count). `ls` is Read line by line's line starts found on the first try (hits, lines). `tL`/`tR` are Listen and find times (tenths of a second, count) per side.
 
 ## Online play (api.php)
 - `POST {create, state}` returns a 4-letter room. `GET ?room=X&since=v` returns the state, or 204 if nothing changed.

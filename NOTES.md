@@ -2,7 +2,8 @@
 
 Decision log, newest first. One entry per session. Grep by date; don't read it whole.
 
-## 2026-11-14 (v1.8)
+## 2026-11-14 (v1.8–1.9)
+- Listen and find (v1.9): audiovisual search after Keller 2010 / Bolognini. A star appears with a noise burst panned to its side (noise is easier to place by ear than a tone). Two of three stars on the left. Levels fade the cue: repeating beep, then one beep, then lookalike distractors, then only every other star beeps. Hint after 8 s. Logs find time per side; Progress compares left vs. right.
 - Dad has partial left homonymous hemianopia (stroke, May 2026). Research review: scanning training has low-certainty evidence and the 2025 SEARCH RCT found it no better than sham; reading training (Read-Right) has a modest sham-controlled benefit; blind-field discrimination training (Huxlin; JAMA Netw Open 2025 VR trial) can shrink defects but needs verified fixation, which an iPad web app can't do, so leave that to his eye specialist.
 - Read line by line: tap the first word of each line, then read it. Trains the leftward return sweep, which is the main reading problem with left-field loss. Self-paced, no timer. Levels add lines and remove the red arrow and dimming. Two questions per passage: one answered at the start of a line, one at the end. Progress shows line starts found on the first try.
 - Added project-session docs: CLAUDE.md, ARCHITECTURE.md, HANDOFF.md, ROADMAP.md, NOTES.md, scripts/check.sh.
