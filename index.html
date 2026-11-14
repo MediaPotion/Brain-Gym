@@ -264,6 +264,34 @@ div.cell{ cursor:default; }
 .sheet textarea{ display:block; width:100%; min-height:6.5rem; padding:0.7rem; font:inherit; font-size:1.1rem; color:var(--ink);
   background:var(--surface); border:2px solid var(--line); border-radius:0.7rem; resize:vertical; }
 
+.prow{ display:grid; grid-template-columns:2rem 1fr auto; align-items:center; gap:0.4rem 0.8rem; padding:0.75rem 1rem; border-bottom:1px solid var(--line); }
+.prow:last-child{ border-bottom:0; }
+.pmark{ width:1.8rem; height:1.8rem; border-radius:50%; border:2px solid var(--line); display:grid; place-items:center; font-weight:700; color:var(--on-primary); }
+.prow.done .pmark{ background:var(--good); border-color:var(--good); }
+.prow.done .ex-name{ color:var(--muted); }
+.plandone{ font-size:1.3rem; font-weight:700; color:var(--good); margin:0.4rem 0; }
+.stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(10rem, 1fr)); gap:0.8rem; }
+.stat{ background:var(--surface); border:1px solid var(--line); border-radius:0.8rem; padding:0.9rem 1rem; }
+.stat b{ display:block; font-size:1.8rem; line-height:1.1; }
+.stat span{ color:var(--muted); }
+.cal{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:0.4rem; padding:1rem 1rem 0.6rem; max-width:32rem; }
+.cal b{ text-align:center; color:var(--muted); font-size:0.9rem; }
+.cal i{ font-style:normal; aspect-ratio:1; display:grid; place-items:center; border-radius:0.5rem; border:2px solid var(--line); font-weight:700; }
+.cal i.part{ background:var(--cell); border-color:var(--primary); }
+.cal i.full{ background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
+.cal i.today{ outline:3px solid var(--mark); outline-offset:1px; }
+.legend{ display:flex; flex-wrap:wrap; gap:0.5rem 1.2rem; padding:0 1rem 1rem; font-size:0.95rem; color:var(--muted); }
+.legend span{ display:inline-flex; align-items:center; gap:0.4rem; }
+.legend i{ width:1.1rem; height:1.1rem; border-radius:0.3rem; border:2px solid var(--line); }
+.legend i.part{ background:var(--cell); border-color:var(--primary); }
+.legend i.full{ background:var(--primary); border-color:var(--primary); }
+.wrow{ display:grid; grid-template-columns:minmax(9rem, 1.3fr) minmax(5rem, 2fr) 4.2rem; align-items:center; gap:0.4rem 1rem; padding:0.7rem 1rem; border-bottom:1px solid var(--line); }
+.wrow:last-child{ border-bottom:0; }
+.wrow small{ display:block; color:var(--muted); }
+.wrow b{ text-align:right; }
+.wbar{ height:1.1rem; background:var(--cell); border-radius:0.55rem; overflow:hidden; }
+.wbar i{ display:block; height:100%; background:var(--primary); }
+.reporttext{ width:100%; font:inherit; font-size:0.95rem; padding:0.6rem; border:2px solid var(--line); border-radius:0.6rem; background:var(--surface); color:var(--ink); }
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -405,7 +433,7 @@ function pulseAnchor() { anchor.classList.add('pulse'); setTimeout(() => anchor.
 
 /* ---------- saved data (this device only) ---------- */
 const KEY = 'dailypractice.v1';
-const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true }, levels: {}, history: [] });
+const blank = () => ({ settings: { name: '', big: false, sound: true, voice: false, guide: true, perDay: 7, parts: 1, goalDays: 6 }, levels: {}, history: [] });
 let S = blank();
 try {
   const raw = localStorage.getItem(KEY);
@@ -1424,7 +1452,7 @@ function photoToday(create) {
   if (!pool.length) pool = PHOTOS;
   const p = pick(pool);
   S.recentPhotos = [p.file, ...recent.filter(f => f !== p.file)].slice(0, Math.max(0, Math.min(30, PHOTOS.length - 1)));
-  S.photo = { date: todayKey(), file: p.file, order: shuffle(range(TILES)), done: 0, need: AREAS.length };
+  S.photo = { date: todayKey(), file: p.file, order: shuffle(range(TILES)), done: 0, need: todayPlan().ids.length };
   save();
   return S.photo;
 }
@@ -1458,6 +1486,44 @@ function showReveal(prev) {
   );
 }
 
+/* ---------- weekly goals and today's plan ----------
+   Each exercise has a goal of times per week (TARGETS, changeable in Settings as S.targets).
+   Each day the plan takes the S.settings.perDay exercises furthest from their goal over the last 7 days,
+   and keeps that list for the day (S.plan). S.plans keeps 60 days of plans for the report calendar. */
+const TARGETS = { read: 5, seek: 5, scan: 3, word: 2, bisect: 2, trail: 2, alert: 2, copy: 2, mirror: 2, clock: 2, track: 2, memory: 2, steps: 2, meaning: 2, routine: 3 };
+const DAY = 86400000;
+const targetOf = id => { const v = (S.targets || {})[id]; return Number.isInteger(v) ? v : (TARGETS[id] != null ? TARGETS[id] : 2); };
+const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() - 6 * DAY; };
+const doneSince = (id, ms) => S.history.filter(x => x.id === id && x.t >= ms).length;
+const playedOn = (id, day) => S.history.some(x => x.id === id && new Date(x.t).toDateString() === day);
+function todayPlan() {
+  const day = todayKey();
+  if (S.plan && S.plan.day === day && Array.isArray(S.plan.ids) && S.plan.ids.every(id => byId[id])) return S.plan;
+  const since = weekStart();
+  const c = EX.filter(e => targetOf(e.id) > 0).map(e => ({ id: e.id, r: doneSince(e.id, since) / targetOf(e.id), last: (lastOf(e.id) || {}).t || 0 }));
+  c.sort((a, b) => a.r - b.r || a.last - b.last);
+  const chosen = new Set(c.slice(0, Math.max(1, S.settings.perDay || 7)).map(x => x.id));
+  S.plan = { day, ids: EX.filter(e => chosen.has(e.id)).map(e => e.id) };
+  S.plans = (Array.isArray(S.plans) ? S.plans : []).filter(p => p.day !== day).concat([S.plan]).slice(-60);
+  save();
+  return S.plan;
+}
+const planLeft = P => P.ids.filter(id => !playedOn(id, P.day));
+function planPart(P) {
+  const left = planLeft(P);
+  if ((S.settings.parts || 1) < 2) return { queue: left, part: 0 };
+  const first = Math.ceil(P.ids.length / 2);
+  return left.length > P.ids.length - first ? { queue: left.slice(0, left.length - (P.ids.length - first)), part: 1 } : { queue: left, part: 2 };
+}
+function resetPlanIfUntouched() {
+  if (S.plan && S.plan.day === todayKey() && !S.plan.ids.some(id => playedOn(id, S.plan.day))) { S.plan = null; save(); }
+}
+function avgMinutes(n) {
+  const ds = S.history.filter(x => x.d).slice(-40).map(x => x.d);
+  const per = ds.length >= 3 ? ds.reduce((a, b) => a + b, 0) / ds.length : 120;
+  return Math.max(1, Math.round(n * per / 60));
+}
+
 /* ---------- running a session ---------- */
 function mergeX(list) {
   if (!list.length) return null;
@@ -1475,7 +1541,12 @@ function pickSession() {
     return list[0].id;
   });
 }
-function startSession() { run = { queue: pickSession(), qi: 0, session: true, results: [], started: Date.now(), photo: PHOTOS.length ? photoToday(true) : null }; showIntro(); }
+function startSession() {
+  const P = todayPlan(); let { queue } = planPart(P);
+  if (!queue.length) queue = pickSession();
+  run = { queue, qi: 0, session: true, results: [], started: Date.now(), photo: PHOTOS.length ? photoToday(true) : null };
+  showIntro();
+}
 function startSingle(id) { run = { queue: [id], qi: 0, session: false, results: [], started: Date.now() }; showIntro(); }
 
 function topBar(title, right) {
@@ -1487,7 +1558,7 @@ function topBar(title, right) {
 function showIntro() {
   clearTimers();
   const ex = byId[run.queue[run.qi]];
-  run.ex = ex; run.level = levelOf(ex.id); run.ti = 0; run.scores = []; run.extras = [];
+  run.ex = ex; run.level = levelOf(ex.id); run.ti = 0; run.scores = []; run.extras = []; run.blockStart = Date.now();
   const instr = ex.how(run.level);
   screen(
     topBar(run.session ? `Exercise ${run.qi + 1} of ${run.queue.length}` : ex.area, ''),
@@ -1533,7 +1604,7 @@ function endBlock() {
   else if (mean < 0.5 && lv > 1) { lv--; change = 'down'; }
   const x = mergeX(run.extras);
   S.levels[ex.id] = lv;
-  S.history.push({ t: Date.now(), id: ex.id, lv: run.level, sc: Math.round(mean * 100) / 100, x });
+  S.history.push({ t: Date.now(), id: ex.id, lv: run.level, sc: Math.round(mean * 100) / 100, x, d: Math.min(1800, Math.round((Date.now() - (run.blockStart || Date.now())) / 1000)) });
   if (S.history.length > 800) S.history = S.history.slice(-800);
   save();
   run.results.push({ ex, score: mean, level: run.level, next: lv, change, x });
@@ -1547,6 +1618,11 @@ function endBlock() {
   }
   if (more) { run.qi++; showIntro(); } else showSummary();
 }
+function planStatus() {
+  const P = todayPlan(), left = planLeft(P).length;
+  if (!left) return ' Today’s plan is all done.';
+  return ` Today’s plan: ${P.ids.length - left} of ${P.ids.length} done.` + ((S.settings.parts || 1) > 1 ? ' Part 2 is best later in the day.' : '');
+}
 function showSummary() {
   clearTimers();
   const mins = Math.max(1, Math.round((Date.now() - run.started) / 60000));
@@ -1558,7 +1634,7 @@ function showSummary() {
   });
   screen(
     h('h1', { text: single ? 'Exercise done' : run.photo ? 'Workout done. Here’s today’s photo.' : 'Workout done' }),
-    h('p', { class: 'muted', text: `That took about ${plural(mins, 'minute')}.` }),
+    h('p', { class: 'muted', text: `That took about ${plural(mins, 'minute')}.` + planStatus() }),
     run.photo ? photoView(run.photo, run.prevShown) : null,
     h('div', { class: 'group', style: 'margin-top:1.2rem' }, h('ul', { class: 'results', style: 'margin:0' }, items)),
     h('div', { class: 'btnrow' },
@@ -1596,17 +1672,38 @@ function showHome() {
   screen(
     h('header', { class: 'top' }, h('h1', { text: 'Brain Gym' }),
       h('nav', null,
-        h('button', { class: 'btn quiet small', type: 'button', text: 'Progress', onclick: showProgress }),
+        h('button', { class: 'btn quiet small', type: 'button', text: 'My report', onclick: showProgress }),
         h('button', { class: 'btn quiet small', type: 'button', text: 'Settings', onclick: showSettings }))),
     h('p', { class: 'greet', text: `${greet}${nm ? ', ' + nm : ''}.` }),
-    h('div', { class: 'btnrow starts' },
-      h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }),
-      h('button', { class: 'btn big quiet', type: 'button', text: 'Play with family', onclick: showFamily })),
-    h('p', { class: 'muted', text: `${AREAS.length} exercises, about 15 minutes.` }),
+    planCard(),
     homePhoto(),
     weekDots(),
+    h('h2', { class: 'area', text: 'Any exercise, any time' }),
     groups
   );
+}
+function planCard() {
+  const P = todayPlan(), { queue, part } = planPart(P), left = planLeft(P);
+  const rows = P.ids.map(id => {
+    const done = !left.includes(id), e = byId[id];
+    return h('div', { class: 'prow' + (done ? ' done' : '') },
+      h('span', { class: 'pmark', 'aria-hidden': 'true', text: done ? '✓' : '' }),
+      h('span', { class: 'ex-name', text: e.name }),
+      h('span', { class: 'ex-meta', text: done ? 'Done' : e.area }));
+  });
+  const family = h('button', { class: 'btn big quiet', type: 'button', text: 'Play with family', onclick: showFamily });
+  let lead, note;
+  if (!left.length) {
+    lead = h('p', { class: 'plandone', text: '✓ Today’s plan is done. Nice work.' });
+    note = 'Want more? Pick any exercise below.';
+  } else {
+    lead = h('button', { class: 'btn big', type: 'button', text: part ? `Start part ${part} of 2` : left.length < P.ids.length ? 'Keep going' : 'Start today’s practice', onclick: startSession });
+    note = `${plural(queue.length, 'exercise')}, about ${plural(avgMinutes(queue.length), 'minute')}.` + (part === 1 ? ' Part 2 is best later in the day.' : '');
+  }
+  return [h('h2', { class: 'area', text: `Today’s plan: ${P.ids.length - left.length} of ${P.ids.length} done` }),
+    h('div', { class: 'group' }, rows),
+    h('div', { class: 'btnrow starts' }, lead, family),
+    h('p', { class: 'muted', text: note })];
 }
 function homePhoto() {
   const P = PHOTOS.length ? photoToday(false) : null;
@@ -1624,11 +1721,89 @@ function miniChart(list) {
   list.forEach((x, i) => { const hgt = Math.max(2, x.sc * 28); svg.append(s('rect', { x: i * 10 + 1, y: 29 - hgt, width: 8, height: hgt, rx: 1.5 })); });
   return svg;
 }
+function weekFacts() {
+  const since = weekStart(), today = todayKey();
+  const recent = S.history.filter(x => x.t >= since);
+  const days = new Set(recent.map(x => dayKey(x.t)));
+  const plans = (S.plans || []).filter(p => new Date(p.day).getTime() >= since);
+  const full = plans.filter(p => p.ids.length && p.ids.every(id => playedOn(id, p.day))).length;
+  const secs = recent.reduce((a, x) => a + (x.d || 0), 0);
+  const rows = EX.filter(e => targetOf(e.id) > 0 || doneSince(e.id, since)).map(e => {
+    const last = lastOf(e.id);
+    return { e, n: doneSince(e.id, since), goal: targetOf(e.id), level: levelOf(e.id), last: last ? pct(last.sc) : '' };
+  });
+  const goalSum = rows.reduce((a, r) => a + r.goal, 0), metSum = rows.reduce((a, r) => a + Math.min(r.n, r.goal), 0);
+  return { days: days.size, goalDays: S.settings.goalDays || 6, full, mins: Math.round(secs / 60), rounds: recent.length, rows, goalSum, metSum, today };
+}
+function calendar() {
+  const cal = h('div', { class: 'cal' });
+  const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 27);
+  for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); cal.append(h('b', { text: 'SMTWTFS'[d.getDay()] })); }
+  const plans = {}; (S.plans || []).forEach(p => plans[p.day] = p);
+  const played = {}; S.history.forEach(x => { const k = dayKey(x.t); (played[k] = played[k] || new Set()).add(x.id); });
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const k = d.toDateString(), p = plans[k], got = played[k];
+    const full = p && p.ids.length && p.ids.every(id => got && got.has(id));
+    const cls = (full ? 'full' : got ? 'part' : '') + (k === todayKey() ? ' today' : '');
+    const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + (full ? ': whole plan done' : got ? ': some practice' : ': no practice');
+    cal.append(h('i', { class: cls, 'aria-label': label, title: label, text: d.getDate() }));
+  }
+  return [cal, h('div', { class: 'legend' },
+    h('span', null, h('i', { class: 'full' }), 'Whole plan done'),
+    h('span', null, h('i', { class: 'part' }), 'Some practice'),
+    h('span', null, h('i'), 'No practice'))];
+}
+function reportText(F) {
+  const lines = [`Brain Gym report, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+    `Last 7 days: practiced ${F.days} of 7 days (goal ${F.goalDays}). Whole plan done on ${plural(F.full, 'day')}. ${plural(F.rounds, 'exercise')}` + (F.mins ? `, about ${plural(F.mins, 'minute')}.` : '.'),
+    `Weekly goals met: ${F.metSum} of ${F.goalSum}.`, '', 'This week (done / goal, level, last score):'];
+  F.rows.forEach(r => lines.push(`- ${r.e.name}: ${r.n} / ${r.goal}, level ${r.level}` + (r.last ? `, ${r.last}` : '')));
+  const sk = S.history.filter(x => x.id === 'seek' && x.x && x.x.tL && x.x.tL[1] && x.x.tR && x.x.tR[1]).slice(-5);
+  if (sk.length) {
+    const a = k => (sk.reduce((s, x) => s + x.x[k][0], 0) / 10 / sk.reduce((s, x) => s + x.x[k][1], 0)).toFixed(1);
+    lines.push('', `Listen and find, time to find a star (last ${sk.length} rounds): left ${a('tL')} s, right ${a('tR')} s.`);
+  }
+  const rd = S.history.filter(x => x.id === 'read' && x.x && x.x.ls && x.x.ls[1]).slice(-5);
+  if (rd.length) lines.push(`Read line by line, line starts found first try (last ${rd.length} rounds): ${pct(rd.reduce((s, x) => s + x.x.ls[0], 0) / rd.reduce((s, x) => s + x.x.ls[1], 0))}.`);
+  const bi = S.history.filter(x => x.id === 'bisect' && x.x && x.x.bi && x.x.bi[1]).slice(-5);
+  if (bi.length) { const v = bi.reduce((s, x) => s + x.x.bi[0], 0) / 10 / bi.reduce((s, x) => s + x.x.bi[1], 0); lines.push(`Find the middle, average tap (last ${bi.length} rounds): ${Math.abs(v).toFixed(1)}% ${v > 0 ? 'right' : 'left'} of center.`); }
+  return lines.join('\n');
+}
+function reportTop() {
+  const F = weekFacts();
+  const stat = (big, small) => h('div', { class: 'stat' }, h('b', { text: big }), h('span', { text: small }));
+  const rows = F.rows.map(r => h('div', { class: 'wrow' },
+    h('div', null, h('span', { class: 'ex-name', text: r.e.name }), h('small', { text: `Level ${r.level}` + (r.last ? `, last score ${r.last}` : '') })),
+    h('div', { class: 'wbar' }, h('i', { style: `width:${r.goal ? Math.min(100, r.n / r.goal * 100) : 100}%` })),
+    h('b', { text: r.goal ? `${r.n} of ${r.goal}` : `${r.n}` })));
+  const status = h('p', { class: 'muted', role: 'status' });
+  const share = h('button', { class: 'btn', type: 'button', text: 'Share this report' });
+  share.addEventListener('click', async () => {
+    const text = reportText(F);
+    try { if (navigator.share) { await navigator.share({ title: 'Brain Gym report', text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); status.textContent = 'Copied. Paste it into a message or email.'; }
+    catch (e) { status.replaceChildren(h('textarea', { class: 'reporttext', readonly: true, rows: '10', text })); }
+  });
+  return [
+    h('h2', { class: 'area', text: 'Last 7 days' }),
+    h('div', { class: 'stats' },
+      stat(`${F.days} of 7`, `days practiced. Goal: ${F.goalDays}`),
+      stat(`${F.full}`, F.full === 1 ? 'day with the whole plan done' : 'days with the whole plan done'),
+      stat(F.mins ? `${F.mins}` : `${F.rounds}`, F.mins ? 'minutes of practice' : 'exercises done'),
+      stat(`${F.metSum} of ${F.goalSum}`, 'weekly goals met')),
+    h('h2', { class: 'area', text: 'Last 4 weeks' }),
+    h('div', { class: 'group' }, calendar()),
+    h('h2', { class: 'area', text: 'Each exercise this week: times done and the weekly goal' }),
+    h('div', { class: 'group' }, rows),
+    h('div', { class: 'btnrow' }, share), status
+  ];
+}
 function showProgress() {
   clearTimers();
   if (!S.history.length) {
-    screen(backBar('Progress'), h('p', { text: 'No workouts yet. Start today’s workout and your scores will show up here.' }),
-      h('button', { class: 'btn big', type: 'button', text: 'Start today’s workout', onclick: startSession }));
+    screen(backBar('My report'), h('p', { text: 'Nothing yet. Start today’s practice and your report will fill in here.' }),
+      h('button', { class: 'btn big', type: 'button', text: 'Start today’s practice', onclick: startSession }));
     return;
   }
   const scans = S.history.filter(x => x.id === 'scan' && x.x && x.x.L).slice(-8);
@@ -1681,7 +1856,7 @@ function showProgress() {
       list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
       h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
   });
-  screen(backBar('Progress'), weekDots(), middle, sides, reading, seeking,
+  screen(backBar('My report'), reportTop(), middle, sides, reading, seeking,
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
@@ -1707,6 +1882,17 @@ function showSettings() {
         h('button', { type: 'button', 'aria-label': `Lower level for ${e.name}`, text: '−', onclick: () => set(-1) }), label,
         h('button', { type: 'button', 'aria-label': `Raise level for ${e.name}`, text: '+', onclick: () => set(1) })));
   });
+  const stepField = (label, get, set, min, max, fmt, aria) => {
+    const out = h('span', { text: fmt(get()) });
+    const step = d => { set(Math.max(min, Math.min(max, get() + d))); save(); resetPlanIfUntouched(); out.textContent = fmt(get()); };
+    return h('div', { class: 'field' }, h('span', { class: 'ex-name', text: label }),
+      h('div', { class: 'stepper' },
+        h('button', { type: 'button', 'aria-label': `Less: ${aria || label}`, text: '−', onclick: () => step(-1) }), out,
+        h('button', { type: 'button', 'aria-label': `More: ${aria || label}`, text: '+', onclick: () => step(1) })));
+  };
+  const numField = (label, key, min, max, fmt) => stepField(label, () => S.settings[key], v => { S.settings[key] = v; }, min, max, fmt);
+  const goals = EX.map(e => stepField(e.name, () => targetOf(e.id), v => { S.targets = Object.assign({}, S.targets, { [e.id]: v }); }, 0, 7,
+    v => v ? `${v} a week` : 'Off', `times a week for ${e.name}`));
   let armed = false;
   const reset = h('button', { class: 'btn quiet', type: 'button', text: 'Erase all scores' });
   reset.addEventListener('click', () => {
@@ -1720,6 +1906,14 @@ function showSettings() {
       sw('Red guide line on the left edge', 'guide'),
       sw('Sounds', 'sound'),
       canSpeak ? sw('Read instructions aloud', 'voice') : null),
+    h('h2', { class: 'area', text: 'Daily plan' }),
+    h('div', { class: 'group' },
+      numField('Exercises each day', 'perDay', 3, 12, v => plural(v, 'exercise')),
+      numField('Split each day into', 'parts', 1, 2, v => v === 1 ? 'One part' : 'Two parts'),
+      numField('Goal: practice days a week', 'goalDays', 1, 7, v => plural(v, 'day'))),
+    h('h2', { class: 'area', text: 'Weekly goal for each exercise. Ask his therapist what fits' }),
+    h('div', { class: 'group' }, goals),
+    h('p', { class: 'note', text: 'Changes show up in today’s plan if today’s practice hasn’t started yet, otherwise tomorrow.' }),
     h('h2', { class: 'area', text: 'Difficulty. It adjusts on its own, or set it here' }),
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
@@ -2011,7 +2205,7 @@ function drawMatch() {
 
 /* ---------- feedback button (always on screen) ----------
    Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
-const APP_VERSION = 'Version 1.10, November 14, 2026';
+const APP_VERSION = 'Version 1.11, November 14, 2026';
 const OUTBOX = 'braingym.outbox';
 const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
 function outbox(list) {

@@ -2,7 +2,8 @@
 
 Decision log, newest first. One entry per session. Grep by date; don't read it whole.
 
-## 2026-11-14 (v1.8–1.10)
+## 2026-11-14 (v1.8–1.11)
+- Daily plan + My report (v1.11), Nick's ask: a regimen that schedules each exercise enough and tracks use. Each exercise has a weekly goal; each day's plan is the 7 furthest behind over the last 7 days. Vision exercises default to 5 a week so they come up most days, which replaced the idea of a separate vision section. Optional two parts a day. Report: days practiced, whole-plan days, minutes, goals met, 4-week calendar, per-exercise counts, share sheet.
 - Feedback button (v1.10): always on screen, top right. Quick-tap tags + optional note. Nick chose to have notes go straight into ROADMAP.md on the public repo (told it's public). The server commits via the GitHub API with a token kept outside the repo; notes queue on the server and on the iPad if anything fails. Installed PHP via Homebrew on Nick's Mac for testing.
 - Listen and find (v1.9): audiovisual search after Keller 2010 / Bolognini. A star appears with a noise burst panned to its side (noise is easier to place by ear than a tone). Two of three stars on the left. Levels fade the cue: repeating beep, then one beep, then lookalike distractors, then only every other star beeps. Hint after 8 s. Logs find time per side; Progress compares left vs. right.
 - Dad has partial left homonymous hemianopia (stroke, May 2026). Research review: scanning training has low-certainty evidence and the 2025 SEARCH RCT found it no better than sham; reading training (Read-Right) has a modest sham-controlled benefit; blind-field discrimination training (Huxlin; JAMA Netw Open 2025 VR trial) can shrink defects but needs verified fixation, which an iPad web app can't do, so leave that to his eye specialist.

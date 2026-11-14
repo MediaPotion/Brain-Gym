@@ -13,13 +13,13 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 - **Waiting on Nick:** his visual-field test printout (which part of the left side is missing), whether he also has left neglect, and his eye specialist's/OT's view.
 - **Quick-glance practice:** eyes on center, a target flashes briefly on the left, look and tap. Trains fast, large saccades into the blind side.
 - **Left vs. right timing** on the other scanning exercises (Listen and find has it).
-- **Own workout section?** All five hemianopia-relevant exercises share "Looking left and scanning", so each comes up about once every five days. A separate area would make it daily but lengthens the workout and changes the photo reveal's `need`.
+- Built: weekly goals give Read line by line and Listen and find 5 a week each (v1.11), so the separate-section idea is dropped.
 - Not in the app: blind-field restoration training. It needs verified fixation (eye tracking). Ask his specialist about supervised programs.
 
 ## Next to build
 - **Personal bests** on every exercise ("New best: 88%, up from 81%").
 - **Read the face:** pick the feeling (happy, worried, annoyed, joking), later using family photos. Targets right-brain emotion reading.
-- **Remote progress for Nick:** scores are iPad-only today. Could reuse the `api.php` pattern to sync a summary.
+- **Remote progress for Nick:** scores are iPad-only today. v1.11 has Share this report; next step is syncing `reportText()` to a private page through `api.php`.
 - **Notes from family:** Nick types a message that shows when Dad opens the app.
 - **Finish line:** end a workout with a voice message, a favorite song, or a weekly recap.
 

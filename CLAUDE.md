@@ -7,7 +7,7 @@ Start every session by reading HANDOFF.md, then ARCHITECTURE.md. Grep `index.htm
 - **Never rename the saved-data key** `dailypractice.v1` or change the site address. Either one wipes his progress on the iPad.
 - **Bump the version** in Settings (`Version X.Y, Month D, YYYY`, grep `Version 1.`) on every push. It's how Nick checks an update reached the iPad.
 - **Exercise `area` values are strings that must match `AREAS` exactly.** Never use `AREAS[i]`: inserting an area once shifted the indexes and crashed the daily workout (v1.2–1.4).
-- Adding an exercise to an existing area doesn't lengthen the workout (one exercise per area, least-recently-played). Adding an area does, and it also changes the photo reveal's `need`.
+- The daily workout is a plan: the `perDay` exercises (default 7) furthest from their weekly goals in `TARGETS`. Give every new exercise a `TARGETS` entry (missing ones default to 2 a week). Adding exercises or areas doesn't lengthen the day; the photo reveal's `need` follows the plan length.
 - Write for him, not about him: plain words, large targets (48px+), no timers where avoidable, never shaming feedback.
 - Personal reminders go in `ROUTINE` (index.html, "personal routines" section). Ask Nick for what goes wrong, then write the safe answer plus two wrong ones.
 - The whole repo deploys to the public site. Root `.htaccess` blocks `.md`/`.sh`, so keep anything private in those, never in `.json`, `.txt` or other files.

@@ -28,9 +28,17 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 | 655 | `AREAS`, the workout sections in order |
 | 670–1284 | `EX`, the exercises. Each has `id, area, name, what, trials, max, how(lv), run(lv, stage, finish)` |
 | 1285–1342 | Daily photo reveal (12 tiles, one step per finished exercise) |
-| 1343–1451 | Session flow: `pickSession`, `showIntro`, `showTrial`, `endBlock` (level up ≥85%, down <50%), `showSummary` |
-| 1452–1600 | Home, Progress (Find the middle gauge, left/right bars, line starts, left/right find times, mini charts), Settings (version line) |
+| 1343–1451 | Weekly goals and today's plan (`TARGETS`, `todayPlan`), then session flow: `pickSession` (fallback once the plan is done), `showIntro`, `showTrial`, `endBlock` (level up ≥85%, down <50%), `showSummary` |
+| 1452–1600 | Home (plan checklist), My report (stat tiles, calendar, goals, share), Find the middle gauge, left/right bars, line starts, left/right find times, mini charts), Settings (version line) |
 | 1601–1888 | Photo Match family game: deck, `commit()`/polling against `api.php`, setup screen, board |
+
+## Daily plan and report (v1.11)
+- `TARGETS`: times per week for each exercise id (vision ones 5, Find them all 3, routines 3, others 2). Settings can change them (`S.targets`).
+- `todayPlan()`: once a day, picks the `S.settings.perDay` exercises with the lowest (done in the last 7 days ÷ goal), keeps EX order, saves `S.plan` and appends to `S.plans` (60 days, for the calendar). It only rebuilds the same day if nothing in it has been played (`resetPlanIfUntouched` after Settings changes).
+- `planPart()`: with `S.settings.parts = 2`, the day splits into two halves ("Start part 1 of 2").
+- Home shows the plan as a checklist. A plan item counts as done when that exercise was played that day, even from the "Any exercise" list.
+- My report (`showProgress`): `reportTop()` with last-7-day stat tiles, a 4-week calendar (whole plan / some / none), each exercise's count vs. goal, and Share (`navigator.share`, falling back to copy). Then the older vision cards and mini charts.
+- History entries now have `d`, seconds spent on that exercise (intro to finish, capped at 30 min). Older entries have none, so minutes start counting from v1.11.
 
 ## Exercises (id: area)
 scan, word, bisect, read, seek: Looking left and scanning · trail, alert: Attention · copy, mirror, clock: Space and shapes ·
@@ -51,7 +59,7 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - Server: cleans the text (no markdown, links, HTML or @mentions, since the repo is public), rate limits to 10 an hour and 30 a day, appends to `rooms/feedback-pending.jsonl`, then commits every pending note under `<!-- feedback:start -->` in ROADMAP.md. Without a token, notes wait on the server and go out with the next note after the token is added.
 
 ## Saved on the iPad (localStorage)
-`dailypractice.v1`: settings, levels, history (last 800 rounds), today's photo, recent photos, Photo Match bests.
+`dailypractice.v1`: settings (incl. `perDay`, `parts`, `goalDays`), levels, `targets`, `plan`, `plans`, history (last 800 rounds), today's photo, recent photos, Photo Match bests.
 `braingym.room`: the last online game, for Rejoin (6 hours).
 `braingym.outbox`: feedback notes not yet sent.
 
