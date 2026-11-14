@@ -297,6 +297,12 @@ div.cell{ cursor:default; }
 .lifetask{ font-size:1.25rem; font-weight:700; margin:0; max-width:40rem; }
 .life .btnrow{ margin-top:1rem; }
 .life .plandone{ margin:0.8rem 0 0; }
+.glance .gplus{ position:absolute; transform:translate(-50%,-50%); width:72px; height:72px; border-radius:50%; border:3px solid var(--primary); background:var(--surface); color:var(--primary); font-size:2.4rem; font-weight:700; line-height:1; display:grid; place-items:center; padding:0; }
+.glance .gplus.on{ background:var(--primary); color:var(--on-primary); }
+.glance .gflash{ position:absolute; transform:translate(-50%,-50%); color:var(--ink); font-weight:700; line-height:1; pointer-events:none; }
+.glance .gflash.shown{ color:var(--mark); }
+.opts.three{ grid-template-columns:repeat(3, 1fr); }
+.opts.three .opt{ text-align:center; font-size:1.8rem; }
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -1029,6 +1035,48 @@ const EX = [
     }
   },
   {
+    id: 'glance', area: 'Looking left and scanning', name: 'Quick look', what: 'Look fast to the side, then say what you saw', trials: 8, max: 5,
+    how: lv => 'Tap the + in the middle. Something will flash for a moment, usually on the left. Look at it fast, then tap what it was.',
+    run(lv, stage, finish) {
+      const c = [0, { ms: 1500, fs: 4.2, set: ['●', '▲', '■', '★'] }, { ms: 1100, fs: 3.8, set: ['●', '▲', '■', '★', '♥'] },
+        { ms: 800, fs: 3.4, set: '23456789'.split('') }, { ms: 600, fs: 3, set: '23456789'.split('') }, { ms: 450, fs: 2.6, set: 'EFHLPT'.split('') }][lv];
+      const cue = h('p', { class: 'cue track-status', role: 'status', text: 'Tap the + to start.' });
+      const board = h('div', { class: 'seek glance' });
+      const opts = h('div');
+      stage.append(cue, board, opts);
+      const W = board.clientWidth || 640;
+      const top = board.getBoundingClientRect().top || 200;
+      const H = Math.round(Math.max(280, Math.min(W * 0.6, (window.innerHeight || 800) - top - 190)));
+      board.style.height = H + 'px';
+      const plus = h('button', { class: 'gplus', type: 'button', 'aria-label': 'Start', text: '+', style: `left:${W / 2}px;top:${H / 2}px` });
+      board.append(plus);
+      const side = Math.random() < 0.7 ? 'L' : 'R';
+      const sym = pick(c.set);
+      const far = 0.22 + Math.random() * 0.22;
+      const x = W / 2 + (side === 'L' ? -1 : 1) * far * W, y = H * (0.25 + Math.random() * 0.5);
+      let started = false;
+      plus.addEventListener('click', () => {
+        if (started) return; started = true;
+        plus.classList.add('on'); cue.textContent = 'Get ready…';
+        later(() => {
+          const flashEl = h('div', { class: 'gflash', 'aria-hidden': 'true', text: sym, style: `left:${x}px;top:${y}px;font-size:${c.fs}rem` });
+          board.append(flashEl);
+          later(() => {
+            flashEl.remove(); plus.classList.remove('on');
+            cue.textContent = 'What was it?';
+            const choicesSet = shuffle([sym, ...shuffle(c.set.filter(s => s !== sym)).slice(0, 2)]);
+            opts.replaceChildren(choices(choicesSet, sym, ok => {
+              board.append(h('div', { class: 'gflash shown', 'aria-hidden': 'true', text: sym, style: `left:${x}px;top:${y}px;font-size:${c.fs}rem` }));
+              const where = side === 'L' ? 'left' : 'right';
+              finish(ok ? 1 : 0, ok ? `Yes, ${sym}. It was on the ${where}.` : `It was ${sym}, on the ${where}.` + (side === 'L' ? ' Next time, look left as soon as you tap the +.' : ''),
+                side === 'L' ? { L: [ok ? 1 : 0, 1], R: [0, 0] } : { L: [0, 0], R: [ok ? 1 : 0, 1] });
+            }, 'three'));
+          }, c.ms);
+        }, 500 + rnd(700));
+      });
+    }
+  },
+  {
     id: 'trail', area: 'Attention', name: 'Connect in order', what: 'Keep your place and switch back and forth', trials: 2, max: 5,
     how: lv => lv < 4 ? 'Tap the numbers in order: 1, 2, 3, and so on.' : 'Switch between numbers and letters: 1, A, 2, B, 3, C, and so on.',
     run(lv, stage, finish) {
@@ -1497,7 +1545,7 @@ function showReveal(prev) {
    Each exercise has a goal of times per week (TARGETS, changeable in Settings as S.targets).
    Each day the plan takes the S.settings.perDay exercises furthest from their goal over the last 7 days,
    and keeps that list for the day (S.plan). S.plans keeps 60 days of plans for the report calendar. */
-const TARGETS = { read: 5, seek: 5, scan: 3, word: 2, bisect: 2, trail: 2, alert: 2, copy: 2, mirror: 2, clock: 2, track: 2, memory: 2, steps: 2, meaning: 2, routine: 3 };
+const TARGETS = { read: 5, seek: 5, glance: 4, scan: 3, word: 2, bisect: 2, trail: 2, alert: 2, copy: 2, mirror: 2, clock: 2, track: 2, memory: 2, steps: 2, meaning: 2, routine: 3 };
 const DAY = 86400000;
 const targetOf = id => { const v = (S.targets || {})[id]; return Number.isInteger(v) ? v : (TARGETS[id] != null ? TARGETS[id] : 2); };
 const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() - 6 * DAY; };
@@ -2318,7 +2366,7 @@ function drawMatch() {
 
 /* ---------- feedback button (always on screen) ----------
    Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
-const APP_VERSION = 'Version 1.14, November 14, 2026';
+const APP_VERSION = 'Version 1.15, November 14, 2026';
 const OUTBOX = 'braingym.outbox';
 const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
 function outbox(list) {

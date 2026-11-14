@@ -33,7 +33,7 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 | 1601–1888 | Photo Match family game: deck, `commit()`/polling against `api.php`, setup screen, board |
 
 ## Daily plan and report (v1.11)
-- `TARGETS`: times per week for each exercise id (vision ones 5, Find them all 3, routines 3, others 2). Settings can change them (`S.targets`).
+- `TARGETS`: times per week for each exercise id (Read line by line and Listen and find 5, Quick look 4, Find them all 3, routines 3, others 2). Settings can change them (`S.targets`).
 - `todayPlan()`: once a day, picks the `S.settings.perDay` exercises with the lowest (done in the last 7 days ÷ goal), keeps EX order, saves `S.plan` and appends to `S.plans` (60 days, for the calendar). It only rebuilds the same day if nothing in it has been played (`resetPlanIfUntouched` after Settings changes).
 - `planPart()`: with `S.settings.parts = 2`, the day splits into two halves ("Start part 1 of 2").
 - Home shows the plan as a checklist. A plan item counts as done when that exercise was played that day, even from the "Any exercise" list.
@@ -41,7 +41,7 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 - History entries now have `d`, seconds spent on that exercise (intro to finish, capped at 30 min). Older entries have none, so minutes start counting from v1.11.
 
 ## Exercises (id: area)
-scan, word, bisect, read, seek: Looking left and scanning · trail, alert: Attention · copy, mirror, clock: Space and shapes ·
+scan, word, bisect, read, seek, glance: Looking left and scanning · trail, alert: Attention · copy, mirror, clock: Space and shapes ·
 track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · routine: My routines
 
 `finish(score 0–1, message, extras)`. Extras feed Progress: `L`/`R` arrays are left/right hits, and `bi` is the Find the middle offset (tenths of %, count). `ls` is Read line by line's line starts found on the first try (hits, lines). `tL`/`tR` are Listen and find times (tenths of a second, count) per side.

@@ -11,7 +11,7 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 ## Hemianopia (partial left field loss, from the Nov 14 research review)
 - Built: Read line by line (v1.8), Listen and find (v1.9, also gives left vs. right find times).
 - **Waiting on Nick:** his visual-field test printout (which part of the left side is missing), whether he also has left neglect, and his eye specialist's/OT's view.
-- **Quick-glance practice:** eyes on center, a target flashes briefly on the left, look and tap. Trains fast, large saccades into the blind side.
+- Built: Quick look (v1.15). Once the visual-field printout arrives, place its targets where his field loss actually is.
 - **Left vs. right timing** on the other scanning exercises (Listen and find has it).
 - Built: weekly goals give Read line by line and Listen and find 5 a week each (v1.11), so the separate-section idea is dropped.
 - Not in the app: blind-field restoration training. It needs verified fixation (eye tracking). Ask his specialist about supervised programs.
