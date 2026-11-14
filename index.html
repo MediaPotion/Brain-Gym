@@ -222,6 +222,23 @@ div.cell{ cursor:default; }
 .stepper button{ width:2.8rem; height:2.8rem; border-radius:50%; border:2px solid var(--primary); background:transparent; color:var(--primary); font-weight:700; font-size:1.3rem; line-height:1; }
 .stepper span{ min-width:6.5rem; text-align:center; }
 .note{ font-size:0.95rem; color:var(--muted); margin-top:1.6rem; }
+.rq{ margin-bottom:0.6rem; }
+.rq .task{ margin:0; }
+.rpage{
+  background:var(--surface); border:1px solid var(--line); border-radius:0.8rem;
+  padding:0.5rem 0.6rem; line-height:1.25; font-weight:600;
+}
+.rline{ display:flex; flex-wrap:nowrap; white-space:nowrap; gap:0 0.3em; padding:0 0.3em; border-radius:0.5rem; position:relative; }
+.rpage.mark .rline{ padding-left:1.3em; }
+.rpage.mark .rline.next::before{ content:"\25B6"; position:absolute; left:0.2em; top:50%; transform:translateY(-50%); color:var(--anchor); font-size:0.8em; }
+.rline.now{ background:var(--cell); }
+.rpage.plain .rline.now{ background:none; }
+.rpage.dim .rline.done{ opacity:0.45; }
+.rline.look{ box-shadow:0 0 0 4px var(--mark); }
+.rw{ border:0; background:none; padding:0.3em 0.1em; min-height:48px; font-weight:inherit; border-radius:0.4rem; }
+.rw.ok{ box-shadow:inset 0 -4px 0 var(--good); }
+.rw.hint{ box-shadow:0 0 0 4px var(--mark); }
+
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -560,6 +577,81 @@ function stoveSvg(n, pot, lit) {
 }
 
 /* ---------- exercises ---------- */
+/* Read line by line. Line breaks are fixed so we know which words start and end each line.
+   qs: [line, 'L' answer at the start of the line | 'R' at the end, question, answer, 3 wrong answers].
+   Every passage needs at least one L and one R question within lines 0-3 (level 1 shows 4 lines). */
+const PASSAGES = [
+  { lines: ['Saturday morning Tom drove to the', 'hardware store for a new garden hose.', 'Green ones were on sale for twelve', 'dollars, so he bought two of them.',
+      'On the way home he stopped for gas', 'and a cup of coffee at the corner.', 'Back home, he hooked up the first hose', 'and watered the tomatoes by the fence.'],
+    qs: [[0, 'L', 'What day did Tom go to the store?', 'Saturday', 'Sunday', 'Monday', 'Friday'],
+      [2, 'L', 'What color were the hoses on sale?', 'Green', 'Black', 'Red', 'Blue'],
+      [1, 'R', 'What did Tom go to buy?', 'A garden hose', 'A rake', 'Paint', 'Light bulbs'],
+      [3, 'R', 'How many did he buy?', 'Two', 'One', 'Three', 'Four']] },
+  { lines: ['Rain is coming in from the west', 'tonight, with strong wind after dark.', 'Thursday should be dry but cold,', 'with a high of only forty degrees.',
+      'Snow is possible late on Friday,', 'mostly in the hills north of town.', 'The weekend looks sunny and calm,', 'a good time to rake the last leaves.'],
+    qs: [[0, 'L', 'What is coming in tonight?', 'Rain', 'Snow', 'Fog', 'Hail'],
+      [2, 'L', 'Which day should be dry?', 'Thursday', 'Monday', 'Sunday', 'Tuesday'],
+      [4, 'L', 'What is possible on Friday?', 'Snow', 'Rain', 'Thunder', 'Fog'],
+      [1, 'R', 'When will the strong wind come?', 'After dark', 'At noon', 'At sunrise', 'On Friday'],
+      [3, 'R', 'How warm will Thursday get?', 'Forty degrees', 'Sixty degrees', 'Fifty degrees', 'Thirty degrees']] },
+  { lines: ['Dear Sam, thank you for the help', 'last week with the fallen branch.', 'Maple trees are pretty but messy.', 'I made you a loaf of banana bread.',
+      'It is in a blue tin on your porch.', 'Please keep the tin, I have plenty.', 'Next spring I will plant some roses,', 'so come over and see them in June.'],
+    qs: [[2, 'L', 'What kind of tree is messy?', 'Maple', 'Oak', 'Pine', 'Birch'],
+      [6, 'L', 'When will the roses be planted?', 'Next spring', 'This fall', 'Next week', 'In winter'],
+      [1, 'R', 'What did Sam help with?', 'A fallen branch', 'A flat tire', 'A leaky roof', 'A stuck door'],
+      [3, 'R', 'What kind of bread was made?', 'Banana bread', 'Corn bread', 'Rye bread', 'Raisin bread'],
+      [4, 'R', 'Where is the tin?', 'On the porch', 'In the mailbox', 'On the table', 'In the garage']] },
+  { lines: ['Pancakes are easy to make at home.', 'Mix one cup of flour with an egg', 'and a cup of milk until it is smooth.', 'Butter the pan and heat it slowly.',
+      'Pour in a little batter at a time.', 'Bubbles mean it is time to flip it.', 'Serve them warm with maple syrup', 'and a few fresh berries on the side.'],
+    qs: [[0, 'L', 'What is being made?', 'Pancakes', 'Waffles', 'Muffins', 'Biscuits'],
+      [3, 'L', 'What goes in the pan first?', 'Butter', 'Oil', 'Water', 'Sugar'],
+      [5, 'L', 'What tells you it is time to flip?', 'Bubbles', 'Smoke', 'A timer', 'Steam'],
+      [1, 'R', 'What gets mixed with the flour?', 'An egg', 'Some salt', 'A banana', 'Some oats'],
+      [6, 'R', 'What are they served with?', 'Maple syrup', 'Honey', 'Jam', 'Gravy']] },
+  { lines: ['Bottom of the ninth, two outs, and', 'the home team is down by one run.', 'Martinez steps up and takes a ball.', 'Next pitch, he swings and connects.',
+      'Deep to left field, it is going back,', 'the fielder leaps at the wall, and', 'it is gone! A two run home run!', 'The crowd is on its feet cheering.'],
+    qs: [[2, 'L', 'Who comes up to bat?', 'Martinez', 'Johnson', 'Lee', 'Garcia'],
+      [4, 'L', 'How far was the ball hit?', 'Deep', 'Short', 'Just foul', 'Straight up'],
+      [7, 'L', 'Who is on its feet cheering?', 'The crowd', 'The coach', 'The pitcher', 'The umpire'],
+      [1, 'R', 'How many runs is the home team down?', 'One', 'Two', 'Three', 'None'],
+      [6, 'R', 'What kind of home run was it?', 'Two run', 'Grand slam', 'Solo', 'Three run']] },
+  { lines: ['Reminder: your eye appointment is', 'on Tuesday, March 4, at 10:30 a.m.', 'Please bring your glasses with you', 'and a list of all your medicines.',
+      'Plan to stay for about one hour.', 'Drops may make your eyes blurry, so', 'bring someone who can drive you home.', 'Call us if you need to change the time.'],
+    qs: [[1, 'L', 'What day is the appointment?', 'Tuesday', 'Thursday', 'Monday', 'Friday'],
+      [5, 'L', 'What may make your eyes blurry?', 'Drops', 'Bright lights', 'Reading', 'The test'],
+      [1, 'R', 'What time is the appointment?', '10:30 a.m.', '1:30 p.m.', '9:00 a.m.', '11:30 a.m.'],
+      [3, 'R', 'What list should you bring?', 'Your medicines', 'Your questions', 'Your doctors', 'Your phone numbers'],
+      [4, 'R', 'How long should you plan to stay?', 'One hour', 'Two hours', 'Half an hour', 'All day']] },
+  { lines: ['Early in the morning the lake was', 'still and the fog hung low over it.', 'Two boats were already out by the dock.', 'Bass were jumping near the weeds,',
+      'so we cast our lines along the edge.', 'Within an hour we had caught four,', 'and one of them weighed three pounds.', 'Lunch that day was fried fish and corn.'],
+    qs: [[0, 'L', 'When did the fishing start?', 'Early morning', 'Late at night', 'At noon', 'In the evening'],
+      [3, 'L', 'What kind of fish were jumping?', 'Bass', 'Trout', 'Catfish', 'Salmon'],
+      [7, 'L', 'Which meal was fried fish and corn?', 'Lunch', 'Breakfast', 'Supper', 'A snack'],
+      [2, 'R', 'Where were the two boats?', 'By the dock', 'Under the bridge', 'On the trailer', 'In the reeds'],
+      [5, 'R', 'How many fish were caught in the first hour?', 'Four', 'Two', 'Six', 'Ten']] },
+  { lines: ['Library hours are changing this fall.', 'Starting Monday, the doors will open', 'at nine and close at six each day.', 'Sunday hours will stay the same.',
+      'Large print books are now on the', 'first floor, next to the front desk.', 'Free coffee is served every Wednesday', 'morning in the reading room upstairs.'],
+    qs: [[0, 'L', 'What is changing?', 'Library hours', 'Bus routes', 'Store prices', 'Parking rules'],
+      [3, 'L', 'Which day’s hours stay the same?', 'Sunday', 'Saturday', 'Monday', 'Friday'],
+      [6, 'L', 'What is free on Wednesday mornings?', 'Coffee', 'Donuts', 'Parking', 'Newspapers'],
+      [2, 'R', 'What time will the library close?', 'Six', 'Five', 'Eight', 'Nine'],
+      [5, 'R', 'Where are the large print books now?', 'By the front desk', 'Upstairs', 'In the basement', 'By the windows']] },
+  { lines: ['The truck made a grinding noise', 'every time I pressed the brakes.', 'Joe at the garage took a look.', 'Pads were worn down to the metal,',
+      'and the front rotors needed work too.', 'Parts came in on Thursday afternoon.', 'Total cost was three hundred dollars,', 'but the truck stops smooth and quiet.'],
+    qs: [[2, 'L', 'Who looked at the truck?', 'Joe', 'Bob', 'Mike', 'Dave'],
+      [3, 'L', 'What was worn down to the metal?', 'The pads', 'The tires', 'The belts', 'The wipers'],
+      [0, 'R', 'What kind of noise did the truck make?', 'Grinding', 'Squeaking', 'Rattling', 'Hissing'],
+      [1, 'R', 'When did the noise happen?', 'Pressing the brakes', 'Turning left', 'Starting up', 'Going uphill'],
+      [6, 'R', 'How much did the repair cost?', 'Three hundred dollars', 'Fifty dollars', 'One thousand dollars', 'Ninety dollars']] },
+  { lines: ['Tomatoes need lots of sun and water.', 'Plant them after the last frost in', 'spring, about two feet apart in rows.', 'Stakes help hold up the heavy vines.',
+      'Pick them when they turn deep red', 'and feel a little soft to the touch.', 'Extra tomatoes can be frozen whole', 'or cooked down into a thick sauce.'],
+    qs: [[0, 'L', 'What plant is this about?', 'Tomatoes', 'Peppers', 'Beans', 'Squash'],
+      [3, 'L', 'What helps hold up the vines?', 'Stakes', 'String', 'Rocks', 'Wire'],
+      [0, 'R', 'What do they need lots of?', 'Sun and water', 'Shade', 'Sand', 'Fertilizer'],
+      [2, 'R', 'How are they planted?', 'In rows', 'In pots', 'In circles', 'In one big clump'],
+      [4, 'R', 'What color are they when ready?', 'Deep red', 'Bright green', 'Yellow', 'Orange']] }
+];
+
 const AREAS = ['Looking left and scanning', 'Attention', 'Space and shapes', 'Hand and eye', 'Memory', 'Thinking it through', 'My routines'];
 
 function makeGrid(g, interactive, onTap) {
@@ -706,6 +798,81 @@ const EX = [
         finish(sc, `Your taps landed ${side}.`, { bi: [Math.round(sumDev * 10), N] });
       }
       next();
+    }
+  },
+  {
+    id: 'read', area: 'Looking left and scanning', name: 'Read line by line', what: 'Find the start of each line, then read it', trials: 2, max: 5,
+    how: lv => 'Tap the first word of each line, then read that line.' + (lv <= 2 ? ' The red arrow shows where the next line starts.' : ' Each line starts at the far left.') + ' Then answer two questions.',
+    run(lv, stage, finish) {
+      const c = [0, { n: 4, mark: 1, dim: 1, fs: 1.7 }, { n: 5, mark: 1, dim: 1, fs: 1.6 }, { n: 6, mark: 0, dim: 1, fs: 1.5 },
+        { n: 7, mark: 0, dim: 0, fs: 1.4 }, { n: 8, mark: 0, dim: 0, fs: 1.3, plain: 1 }][lv];
+      const P = fresh(PASSAGES), N = c.n;
+      const qbox = h('div', { class: 'rq', hidden: true });
+      const cue = h('p', { class: 'cue', role: 'status', text: 'Tap the first word of the top line to start.' });
+      const page = h('div', { class: 'rpage' + (c.mark ? ' mark' : '') + (c.dim ? ' dim' : '') + (c.plain ? ' plain' : ''), style: `font-size:${c.fs}rem` });
+      const done = h('button', { class: 'btn', type: 'button', text: 'I read the last line', hidden: true });
+      let started = -1, hits = 0, phase = 'read';
+      const miss = range(N).map(() => 0);
+      const rows = P.lines.slice(0, N).map((ln, li) => h('div', { class: 'rline' },
+        ln.split(' ').map((w, wi) => h('button', { class: 'rw', type: 'button', text: w, onclick: e => tap(li, wi, e.currentTarget) }))));
+      page.append(...rows);
+      stage.append(qbox, cue, page, done);
+      let fs = c.fs;
+      while (fs > 0.95 && rows.some(r => r.scrollWidth > r.clientWidth + 1)) { fs -= 0.05; page.style.fontSize = fs + 'rem'; }
+      const paint = () => rows.forEach((r, i) => {
+        r.classList.toggle('done', i < started);
+        r.classList.toggle('now', i === started);
+        r.classList.toggle('next', i === started + 1);
+      });
+      paint();
+      function tap(li, wi, b) {
+        if (phase !== 'read') return;
+        const next = started + 1;
+        if (li === next && wi === 0) {
+          if (!miss[li]) hits++;
+          b.classList.remove('hint'); b.classList.add('ok'); blip('tick');
+          started = li; paint();
+          if (li + 1 < N) cue.textContent = 'Read this line. Then tap the first word of the next line.';
+          else { cue.textContent = 'Read this last line. Then tap the button below.'; done.hidden = false; try { done.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+          return;
+        }
+        if (li === started || next >= N) return;
+        if (li < started) { cue.textContent = 'That line is done. Look down to the next line.'; return; }
+        miss[next]++; flash(b);
+        if (li === next) { cue.textContent = 'Right line. Now go all the way to the left edge for the first word.'; if (S.settings.guide) pulseAnchor(); }
+        else cue.textContent = started < 0 ? 'Start with the top line, at the far left.' : 'Find the line just below the one you read, at the far left.';
+        if (miss[next] >= 2) rows[next].firstChild.classList.add('hint');
+      }
+      const res = {};
+      done.addEventListener('click', () => {
+        phase = 'ask'; done.hidden = true; cue.textContent = '';
+        page.classList.remove('dim'); rows.forEach(r => r.classList.remove('now', 'next'));
+        const near = side => P.qs.filter(q => q[1] === side && q[0] < N);
+        ask(shuffle([pick(near('L')), pick(near('R'))]), 0);
+      });
+      function ask(qs, k) {
+        const q = qs[k];
+        let answered = false;
+        qbox.hidden = false;
+        qbox.replaceChildren(
+          h('div', { class: 'instr-row' }, h('p', { class: 'task', text: q[2] }), listenBtn(q[2])),
+          choices(shuffle(q.slice(3)), q[3], ok => {
+            if (answered) return; answered = true;
+            res[q[1]] = ok;
+            rows[q[0]].classList.add('look');
+            cue.textContent = ok ? `Yes: ${q[3]}.` : `The answer: ${q[3]}. It’s in the line with the yellow box.`;
+            blip(ok ? 'on' : 'tick');
+            later(() => { rows[q[0]].classList.remove('look'); if (k + 1 < qs.length) ask(qs, k + 1); else end(); }, ok ? 1300 : 2600);
+          }));
+        try { qbox.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      }
+      function end() {
+        const qc = (res.L ? 1 : 0) + (res.R ? 1 : 0);
+        let msg = hits === N ? 'You found the start of every line on the first try.' : `You found the start of ${hits} of ${N} lines on the first try.`;
+        msg += qc === 2 ? ' Both questions right.' : qc === 1 ? ' One of the two questions right.' : ' The questions were tricky this time.';
+        if (!res.L && res.R) msg += ' The answer near the left edge got missed.';
+        finish(0.6 * hits / N + 0.4 * qc / 2, msg, { L: [res.L ? 1 : 0, 1], R: [res.R ? 1 : 0, 1], ls: [hits, N] });
+      }
     }
   },
   {
@@ -1368,6 +1535,15 @@ function showProgress() {
         h('p', { text: `On average your taps land ${word(now)}.` + (bis.length > 5 ? ` When you started: ${word(first)}.` : '') }),
         h('p', { class: 'muted', text: 'Taps to the right of the middle mean the left side of the line is being missed. Closer to the center is better.' }))];
   }
+  const rds = S.history.filter(x => x.id === 'read' && x.x && x.x.ls && x.x.ls[1]);
+  let reading = null;
+  if (rds.length) {
+    const rate = list => list.reduce((a, x) => a + x.x.ls[0], 0) / list.reduce((a, x) => a + x.x.ls[1], 0);
+    reading = [h('h2', { class: 'area', text: 'Read line by line: line starts found on the first try' }),
+      h('div', { class: 'group' },
+        h('p', { text: `Last 5 rounds: ${pct(rate(rds.slice(-5)))}.` + (rds.length > 5 ? ` When you started: ${pct(rate(rds.slice(0, 5)))}.` : '') }),
+        h('p', { class: 'muted', text: 'Each new line starts with a big look to the left. Higher is better.' }))];
+  }
   const rows = EX.map(e => {
     const list = S.history.filter(x => x.id === e.id).slice(-12);
     return h('li', null,
@@ -1375,7 +1551,7 @@ function showProgress() {
       list.length ? miniChart(list) : h('span', { class: 'ex-meta', text: 'Not tried yet' }),
       h('small', { text: `Level ${levelOf(e.id)} of ${e.max}` + (list.length ? `. ${plural(S.history.filter(x => x.id === e.id).length, 'round')} so far, last score ${pct(list[list.length - 1].sc)}.` : '.') }));
   });
-  screen(backBar('Progress'), weekDots(), middle, sides,
+  screen(backBar('Progress'), weekDots(), middle, sides, reading,
     h('h2', { class: 'area', text: 'Each exercise, most recent rounds on the right' }),
     h('div', { class: 'group' }, h('ul', { class: 'results', style: 'margin:0' }, rows)));
 }
@@ -1418,7 +1594,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.7, October 25, 2026' })
+    h('p', { class: 'note', text: 'Version 1.8, November 14, 2026' })
   );
 }
 

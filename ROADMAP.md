@@ -8,6 +8,14 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 - Confirm the fire setup (wood stove? fireplace?) and the stove (coils or flat glass, knob layout).
 - His interests (hobbies, old work, teams) to theme the games so they feel like his.
 
+## Hemianopia (partial left field loss, from the Nov 14 research review)
+- Built: Read line by line (v1.8).
+- **Waiting on Nick:** his visual-field test printout (which part of the left side is missing), whether he also has left neglect, and his eye specialist's/OT's view.
+- **Sound-cued search:** targets on the left play a tone panned left (Web Audio StereoPannerNode), and the cue fades as he improves. Small RCT support (Keller 2010).
+- **Quick-glance practice:** eyes on center, a target flashes briefly on the left, look and tap. Trains fast, large saccades into the blind side.
+- **Left vs. right timing** on every exercise, so Progress can show the left catching up.
+- Not in the app: blind-field restoration training. It needs verified fixation (eye tracking). Ask his specialist about supervised programs.
+
 ## Next to build
 - **Personal bests** on every exercise ("New best: 88%, up from 81%").
 - **Read the face:** pick the feeling (happy, worried, annoyed, joking), later using family photos. Targets right-brain emotion reading.
