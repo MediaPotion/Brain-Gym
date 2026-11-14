@@ -20,6 +20,7 @@ scripts/check.sh
 Checks the inline script parses (node) and `api.php` lints (php -l). For behavior, run a headless Playwright pass at 1180×820 and 820×1180 (iPad landscape/portrait). Online play needs `php -S 127.0.0.1:8770` from the repo, since `api.php` must run.
 
 ## Deploy
+Run `git pull` before starting work: the app's Feedback button commits notes to ROADMAP.md on GitHub, so the server may be ahead of this checkout.
 Push to `main` on GitHub (MediaPotion/Brain-Gym). Hostinger Git auto-deploy puts it in `public_html/braingym`. Nothing else to do. Never point the deploy at `public_html` itself, because it would overwrite mediapotion.net.
 
 ## Commits

@@ -6,9 +6,10 @@ A static single-page app plus one PHP file. No build step, no framework, no data
 | File | What it is |
 |---|---|
 | `index.html` | The whole app (~1,900 lines): CSS, then one inline script |
-| `api.php` | Tiny game server for online Photo Match (~100 lines) |
+| `api.php` | Tiny server: online Photo Match rooms, plus the Feedback button (commits notes to ROADMAP.md through the GitHub API) |
 | `photos/list.json` + `photos/*.jpg` | Family photos for the daily reveal and Photo Match |
-| `rooms/` | Live online games, one JSON file each, deleted after a day. `.htaccess` blocks direct access |
+| `rooms/` | Live online games, one JSON file each, deleted after a day. Also `feedback-pending.jsonl` (notes not yet on GitHub), `feedback-sent.jsonl`, `feedback-times.log` (rate limit). `.htaccess` blocks direct access |
+| `braingym-secret.php` | **Not in the repo.** Lives on Hostinger in the folder above `public_html`. Returns `['github_token' => ...]` for feedback commits |
 | `icon.png` | Home Screen icon (180px dumbbell) |
 | `scripts/check.sh` | Syntax check for the script and PHP |
 | `.htaccess` | Blocks `*.md`, `*.sh` and `scripts/` on the public site (these docs get deployed too) |
@@ -43,9 +44,16 @@ track: Hand and eye · memory: Memory · steps, meaning: Thinking it through · 
 - Clients poll every second. Turn-based, so lag doesn't matter. Only the player whose turn it is can flip.
 - Storage is `rooms/` (falls back to the system temp folder if it can't write there).
 
+## Feedback button
+- `#fbk`, fixed top right on every screen. `#app > :first-child` gets right padding so headers don't sit under it.
+- Opens a dialog: 8 quick-tap tags (must match `FEEDBACK_TAGS` in both index.html and api.php) + an optional note. Adds where he was (`whereNow()`), version, local time.
+- Client: queued in `braingym.outbox`, sent by `flushOutbox()` now, on the `online` event, and 3 s after load.
+- Server: cleans the text (no markdown, links, HTML or @mentions, since the repo is public), rate limits to 10 an hour and 30 a day, appends to `rooms/feedback-pending.jsonl`, then commits every pending note under `<!-- feedback:start -->` in ROADMAP.md. Without a token, notes wait on the server and go out with the next note after the token is added.
+
 ## Saved on the iPad (localStorage)
 `dailypractice.v1`: settings, levels, history (last 800 rounds), today's photo, recent photos, Photo Match bests.
 `braingym.room`: the last online game, for Rejoin (6 hours).
+`braingym.outbox`: feedback notes not yet sent.
 
 ## Deploy
 GitHub `main` deploys to Hostinger `public_html/braingym` via Git auto-deploy, at mediapotion.net/braingym.

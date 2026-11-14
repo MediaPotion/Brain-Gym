@@ -245,6 +245,25 @@ div.cell{ cursor:default; }
 .seek .star.hint{ box-shadow:0 0 0 5px var(--mark); }
 .seek .star.got{ color:var(--good); }
 
+#fbk{
+  position:fixed; z-index:20; top:calc(env(safe-area-inset-top,0px) + 0.7rem); right:calc(env(safe-area-inset-right,0px) + 0.7rem);
+  min-height:48px; padding:0.4rem 1rem; border-radius:999px; border:2px solid var(--primary);
+  background:var(--surface); color:var(--primary); font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(0,0,0,0.18);
+}
+#app > :first-child{ padding-right:8.5rem; }
+.modal{ position:fixed; inset:0; z-index:30; background:rgba(0,0,0,0.5); overflow-y:auto; display:flex; justify-content:center; align-items:flex-start;
+  padding:calc(env(safe-area-inset-top,0px) + 1rem) 1rem 2rem; }
+.sheet{ width:min(100%, 42rem); background:var(--bg); color:var(--ink); border-radius:1rem; padding:1.2rem 1.2rem 1.4rem; box-shadow:0 8px 30px rgba(0,0,0,0.3); }
+.sheet h1{ font-size:1.5rem; }
+.tags{ display:grid; grid-template-columns:repeat(2, 1fr); gap:0.6rem; margin:0.8rem 0 1rem; }
+@media (max-width:420px){ .tags{ grid-template-columns:1fr; } }
+.tag{ min-height:3.4rem; padding:0.6rem 0.9rem; text-align:left; font-size:1.1rem; font-weight:700; background:var(--surface); border:2px solid var(--line); border-radius:0.7rem; }
+.tag[aria-pressed="true"]{ background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+.tag[aria-pressed="true"]::before{ content:"\2713\00a0\00a0"; }
+.sheet label{ display:block; font-weight:700; margin-bottom:0.4rem; }
+.sheet textarea{ display:block; width:100%; min-height:6.5rem; padding:0.7rem; font:inherit; font-size:1.1rem; color:var(--ink);
+  background:var(--surface); border:2px solid var(--line); border-radius:0.7rem; resize:vertical; }
+
 /* iPad and larger */
 @media (min-width:700px){
   #app{ max-width:74rem; }
@@ -1705,7 +1724,7 @@ function showSettings() {
     h('div', { class: 'group' }, levels),
     h('div', { class: 'btnrow' }, reset),
     h('p', { class: 'note', text: 'Scores are saved on this iPad only. Brain Gym is for practice at home and doesn’t replace therapy. Show it to your therapist so they can say which exercises and levels fit you best.' }),
-    h('p', { class: 'note', text: 'Version 1.9, November 14, 2026' })
+    h('p', { class: 'note', text: APP_VERSION })
   );
 }
 
@@ -1989,6 +2008,84 @@ function drawMatch() {
   status.textContent = line;
   if (st.up.length === 2 && st.phase === 'play') settleMiss();
 }
+
+/* ---------- feedback button (always on screen) ----------
+   Notes go to api.php, which adds them to ROADMAP.md on GitHub. Unsent notes wait in braingym.outbox. */
+const APP_VERSION = 'Version 1.10, November 14, 2026';
+const OUTBOX = 'braingym.outbox';
+const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
+function outbox(list) {
+  try {
+    if (list) { localStorage.setItem(OUTBOX, JSON.stringify(list)); return list; }
+    const v = JSON.parse(localStorage.getItem(OUTBOX) || '[]'); return Array.isArray(v) ? v : [];
+  } catch (e) { return list || []; }
+}
+let flushing = null;
+function flushOutbox() {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    let list = outbox();
+    while (list.length) {
+      let r;
+      try { r = await fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feedback: list[0] }) }); }
+      catch (e) { break; }
+      if (!r.ok && r.status !== 400) break;
+      list = outbox().slice(1); outbox(list);
+    }
+    flushing = null;
+    return list.length === 0;
+  })();
+  return flushing;
+}
+function whereNow() {
+  if (run && run.ex) return `${run.ex.name}, level ${run.level}`;
+  const t = app.querySelector('.top h1, .top h2, h1');
+  const s = t ? t.textContent.trim() : '';
+  return !s || s === 'Brain Gym' ? 'Home screen' : s.slice(0, 60);
+}
+function openFeedback() {
+  if (document.querySelector('.modal')) return;
+  const where = whereNow(), picked = new Set();
+  const lastFocus = document.activeElement;
+  const close = () => { modal.remove(); try { lastFocus && lastFocus.focus({ preventScroll: true }); } catch (e) {} };
+  const note = h('textarea', { id: 'fbnote', maxlength: '1000', rows: '4' });
+  const send = h('button', { class: 'btn', type: 'button', text: 'Send', disabled: true });
+  const ready = () => { send.disabled = !picked.size && !note.value.trim(); };
+  note.addEventListener('input', ready);
+  const tags = h('div', { class: 'tags' }, FEEDBACK_TAGS.map(tg => {
+    const b = h('button', { class: 'tag', type: 'button', 'aria-pressed': 'false', text: tg });
+    b.addEventListener('click', () => { picked.has(tg) ? picked.delete(tg) : picked.add(tg); b.setAttribute('aria-pressed', String(picked.has(tg))); ready(); });
+    return b;
+  }));
+  const ask = 'What do you think of Brain Gym? Tap any that fit.';
+  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'fbtitle' },
+    h('h1', { id: 'fbtitle', text: 'Send a note about Brain Gym' }),
+    h('div', { class: 'instr-row' }, h('p', { text: ask }), listenBtn(ask)),
+    h('p', { class: 'muted', text: `About: ${where}` }),
+    tags,
+    h('label', { for: 'fbnote', text: 'Anything else? You can skip this.' }),
+    note,
+    h('p', { class: 'muted', text: 'To talk instead of typing, tap the microphone on the keyboard.' }),
+    h('div', { class: 'btnrow' }, send, h('button', { class: 'btn quiet', type: 'button', text: 'Cancel', onclick: close })));
+  const modal = h('div', { class: 'modal' }, sheet);
+  send.addEventListener('click', async () => {
+    send.disabled = true; send.textContent = 'Sending…';
+    const when = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    outbox(outbox().concat([{ tags: [...picked], note: note.value.trim().slice(0, 1000), where, version: APP_VERSION.split(',')[0].replace('Version ', 'v'), when }]));
+    const sent = await flushOutbox();
+    tone(true);
+    sheet.replaceChildren(
+      h('h1', { id: 'fbtitle', text: 'Thank you' }),
+      h('p', { text: sent ? 'Your note was sent.' : 'Your note is saved on this iPad. It will send by itself the next time Brain Gym is open and online.' }),
+      h('div', { class: 'btnrow' }, h('button', { class: 'btn', type: 'button', text: 'Close', onclick: close })));
+    try { sheet.querySelector('.btn').focus({ preventScroll: true }); } catch (e) {}
+  });
+  document.body.append(modal);
+  try { tags.firstChild.focus({ preventScroll: true }); } catch (e) {}
+}
+document.body.append(h('button', { id: 'fbk', type: 'button', text: 'Feedback', onclick: openFeedback }));
+window.addEventListener('online', () => flushOutbox());
+setTimeout(() => { if (outbox().length) flushOutbox(); }, 3000);
 
 /*TEST*/
 applySettings();

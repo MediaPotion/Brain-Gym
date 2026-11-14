@@ -39,3 +39,7 @@ Ideas discussed with Nick, roughly in priority order. Move items to NOTES.md whe
 ## Known limits
 - Brain-training gains mostly stay in the game. Real-task practice (routines, reaching, socializing) matters more, so keep the app pointed there.
 - Have his OT or speech therapist review which exercises and levels fit.
+
+## Feedback from the app
+Sent with the Feedback button, newest first. Turn these into roadmap items above, then delete them here.
+<!-- feedback:start -->

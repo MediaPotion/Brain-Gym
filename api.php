@@ -3,6 +3,10 @@
 // GET  api.php?room=ABCD[&since=N]  -> {"v":N,"state":{...}} or 204 when unchanged since N
 // POST api.php  {"room":"ABCD","base":N,"state":{...}}  -> {"v":N+1} or 409 {"v":current,"state":...}
 // POST api.php  {"create":true,"state":{...}}  -> {"room":"ABCD","v":1}
+// POST api.php  {"feedback":{"tags":[...],"note":"...","where":"...","version":"...","when":"..."}}  -> {"ok":true,"to":"github"|"queued"}
+//   Saves the note to rooms/feedback-pending.jsonl, then commits every pending note to ROADMAP.md on GitHub.
+//   Needs a GitHub token in braingym-secret.php two folders up (outside public_html, never in this public repo):
+//   <?php return ['github_token' => 'github_pat_...'];
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -41,6 +45,107 @@ function cleanup() {
   }
 }
 
+/* ---------- feedback from the app ---------- */
+const FEEDBACK_TAGS = ['Too hard', 'Too easy', 'Confusing', 'Hard to see', 'Hard to hear', 'Something broke', 'I liked this', 'I have an idea'];
+const GITHUB_REPO = 'MediaPotion/Brain-Gym';
+const ROADMAP = 'ROADMAP.md';
+const FEEDBACK_MARK = '<!-- feedback:start -->';
+
+// Plain text only: no markdown, links, HTML or @mentions in the public roadmap.
+function clean($s, $max) {
+  if (!is_string($s)) return '';
+  $s = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $s);
+  $s = str_replace(['@', '://'], [' at ', ' '], $s);
+  $s = preg_replace('/[<>`*_\[\]#|\\\\~]/u', '', $s);
+  $s = trim(preg_replace('/\s+/u', ' ', $s));
+  return mb_substr($s, 0, $max);
+}
+
+function feedback_line($f) {
+  $parts = [$f['when'] ?: date('Y-m-d'), $f['version'], $f['where']];
+  $line = '- ' . implode(' · ', array_filter($parts, 'strlen'));
+  if ($f['tags']) $line .= ' · **' . implode(', ', $f['tags']) . '**';
+  if ($f['note'] !== '') $line .= ' · “' . $f['note'] . '”';
+  return $line;
+}
+
+function rate_ok($dir) {
+  $path = $dir . '/feedback-times.log';
+  $now = time();
+  $times = array_filter(array_map('intval', @file($path, FILE_IGNORE_NEW_LINES) ?: []), fn($x) => $x > $now - 86400);
+  $hour = count(array_filter($times, fn($x) => $x > $now - 3600));
+  if (count($times) >= 30 || $hour >= 10) return false;
+  $times[] = $now;
+  @file_put_contents($path, implode("\n", $times), LOCK_EX);
+  return true;
+}
+
+function github_token() {
+  $env = getenv('BRAINGYM_GITHUB_TOKEN');
+  if ($env) return $env;
+  $f = dirname(__DIR__, 2) . '/braingym-secret.php';
+  if (!is_file($f)) return null;
+  $cfg = @include $f;
+  return is_array($cfg) && !empty($cfg['github_token']) ? $cfg['github_token'] : null;
+}
+
+function github($method, $path, $token, $body = null) {
+  $ch = curl_init('https://api.github.com/repos/' . GITHUB_REPO . $path);
+  $headers = ['Authorization: Bearer ' . $token, 'Accept: application/vnd.github+json', 'User-Agent: braingym-feedback', 'X-GitHub-Api-Version: 2022-11-28'];
+  if ($body !== null) { $headers[] = 'Content-Type: application/json'; curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body)); }
+  curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+  $res = curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  return [$code, $res === false ? null : json_decode($res, true)];
+}
+
+// Adds the lines under the feedback marker in ROADMAP.md (newest first). Returns true when committed.
+function push_to_roadmap($lines) {
+  $token = github_token();
+  if (!$token || !function_exists('curl_init')) return false;
+  for ($try = 0; $try < 2; $try++) {
+    [$code, $file] = github('GET', '/contents/' . ROADMAP . '?ref=main', $token);
+    if ($code !== 200 || empty($file['sha'])) return false;
+    $text = base64_decode(str_replace("\n", '', $file['content']));
+    $block = implode("\n", array_reverse($lines));
+    if (strpos($text, FEEDBACK_MARK) !== false) $text = str_replace(FEEDBACK_MARK, FEEDBACK_MARK . "\n" . $block, $text);
+    else $text = rtrim($text) . "\n\n## Feedback from the app\nSent with the Feedback button, newest first. Turn these into roadmap items above, then delete them here.\n" . FEEDBACK_MARK . "\n" . $block . "\n";
+    $n = count($lines);
+    [$code] = github('PUT', '/contents/' . ROADMAP, $token, [
+      'message' => 'Feedback from the app' . ($n > 1 ? " ($n notes)" : ''),
+      'content' => base64_encode($text), 'sha' => $file['sha'], 'branch' => 'main']);
+    if ($code === 200 || $code === 201) return true;
+    if ($code !== 409) return false;
+  }
+  return false;
+}
+
+function handle_feedback($in) {
+  $f = $in['feedback'];
+  if (!is_array($f)) fail(400, 'bad request');
+  $tags = array_values(array_intersect(FEEDBACK_TAGS, is_array($f['tags'] ?? null) ? $f['tags'] : []));
+  $fb = ['tags' => $tags, 'note' => clean($f['note'] ?? '', 1000), 'where' => clean($f['where'] ?? '', 80),
+    'version' => clean($f['version'] ?? '', 20), 'when' => clean($f['when'] ?? '', 40)];
+  if (!$fb['tags'] && $fb['note'] === '') fail(400, 'empty');
+  $dir = room_dir();
+  if (!rate_ok($dir)) fail(429, 'too many');
+  $pending = $dir . '/feedback-pending.jsonl';
+  $fh = @fopen($pending, 'c+');
+  if ($fh === false) fail(500, 'storage unavailable');
+  flock($fh, LOCK_EX);
+  fseek($fh, 0, SEEK_END);
+  fwrite($fh, json_encode($fb) . "\n");
+  rewind($fh);
+  $lines = [];
+  while (($row = fgets($fh)) !== false) { $j = json_decode($row, true); if (is_array($j)) $lines[] = feedback_line($j); }
+  $sent = push_to_roadmap($lines);
+  if ($sent) { ftruncate($fh, 0); @file_put_contents($dir . '/feedback-sent.jsonl', json_encode($fb) . "\n", FILE_APPEND | LOCK_EX); }
+  flock($fh, LOCK_UN); fclose($fh);
+  echo json_encode(['ok' => true, 'to' => $sent ? 'github' : 'queued']);
+  exit;
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
@@ -58,6 +163,7 @@ if ($method !== 'POST') fail(405, 'method not allowed');
 $raw = file_get_contents('php://input', false, null, 0, MAX_BYTES + 1);
 if ($raw === false || strlen($raw) > MAX_BYTES) fail(413, 'too large');
 $in = json_decode($raw, true);
+if (is_array($in) && isset($in['feedback'])) handle_feedback($in);
 if (!is_array($in) || !isset($in['state']) || !is_array($in['state'])) fail(400, 'bad request');
 
 if (!empty($in['create'])) {
